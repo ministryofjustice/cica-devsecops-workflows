@@ -1,0 +1,80 @@
+name: Reusable Node CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version to use across all jobs
+        type: string
+        required: false
+        default: '24.18.1'
+      npm-audit-level:
+        description: npm audit severity threshold (passed to --audit-level)
+        type: string
+        required: false
+        default: 'moderate'
+      test-command:
+        description: Command used to run the caller's test suite
+        type: string
+        required: false
+        default: 'npm test'
+      lint-command:
+        description: Command used to run the caller's linter
+        type: string
+        required: false
+        default: 'npm run lint'
+      working-directory:
+        description: Directory to run all steps from, for non-root projects
+        type: string
+        required: false
+        default: '.'
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=${{ inputs.npm-audit-level }}
+
+  test:
+    needs: npm-audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+      - name: Run tests
+        run: ${{ inputs.test-command }}
+
+  lint:
+    needs: npm-audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+      - name: Lint codebase
+        run: ${{ inputs.lint-command }}

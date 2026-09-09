@@ -1,0 +1,122 @@
+name: Reusable Deploy to Kubernetes
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment to gate this deployment behind (reviewers, wait timers, environment secrets)
+        type: string
+        required: true
+      namespace:
+        description: Kubernetes namespace to deploy into
+        type: string
+        required: true
+      manifest-dir:
+        description: Path to the directory containing this environment's deploy/service/ingress manifests
+        type: string
+        required: true
+      container-name:
+        description: Name of the container inside the Deployment manifest whose image should be updated
+        type: string
+        required: true
+      image-uri:
+        description: Full image reference to deploy (registry/repository:tag) — typically reusable-publish.yml's image-uri output
+        type: string
+        required: true
+      deploy-manifest:
+        description: Filename (within manifest-dir) of the Deployment manifest patched by `kubectl set image`
+        type: string
+        required: false
+        default: 'deploy.yml'
+      service-manifest:
+        description: Filename (within manifest-dir) of the Service manifest. Leave empty to skip.
+        type: string
+        required: false
+        default: 'service.yml'
+      ingress-manifest:
+        description: Filename (within manifest-dir) of the Ingress manifest. Leave empty to skip.
+        type: string
+        required: false
+        default: 'ingress.yml'
+      apply-kustomize:
+        description: Whether to also run `kubectl apply -k` against manifest-dir (for a shared base/kustomization.yaml pattern)
+        type: boolean
+        required: false
+        default: true
+      additional-rollout-restart-deployment:
+        description: >
+          Name of an additional Deployment to restart and wait on after applying (e.g. a shared
+          component whose ConfigMap was just re-applied and needs a restart to pick up the change —
+          Kubernetes doesn't do this automatically). Leave empty to skip; this is not needed for
+          every caller, only ones with a similar shared-component pattern to the pilot's
+          "custom-errors" deployment.
+        type: string
+        required: false
+        default: ''
+    secrets:
+      KUBE_CERT:
+        required: true
+      KUBE_CLUSTER:
+        required: true
+      KUBE_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
+      - name: Authenticate with cluster
+        run: |
+          set -euo pipefail
+          if [[ "$KUBE_CERT" == -----BEGIN* ]]; then
+            echo -n "$KUBE_CERT" > ./live_ca.crt
+          else
+            echo -n "$KUBE_CERT" | base64 -d > ./live_ca.crt
+          fi
+          kubectl config set-cluster "$KUBE_CLUSTER" --certificate-authority=./live_ca.crt --server="https://$KUBE_CLUSTER"
+          kubectl config set-credentials github-actions --token="$KUBE_TOKEN"
+          kubectl config set-context "$KUBE_CLUSTER" --cluster="$KUBE_CLUSTER" --user=github-actions --namespace="$NAMESPACE"
+          kubectl config use-context "$KUBE_CLUSTER"
+          kubectl config current-context
+          kubectl --namespace="$NAMESPACE" get pods
+        env:
+          KUBE_CERT: ${{ secrets.KUBE_CERT }}
+          KUBE_CLUSTER: ${{ secrets.KUBE_CLUSTER }}
+          KUBE_TOKEN: ${{ secrets.KUBE_TOKEN }}
+          NAMESPACE: ${{ inputs.namespace }}
+      - name: Deploy to the cluster
+        run: |
+          set -euo pipefail
+          kubectl set image -f "$MANIFEST_DIR/$DEPLOY_MANIFEST" "$CONTAINER_NAME=$IMAGE_URI" --local -o yaml \
+            | kubectl apply -n "$NAMESPACE" -f -
+
+          if [ -n "$SERVICE_MANIFEST" ]; then
+            kubectl apply -n "$NAMESPACE" -f "$MANIFEST_DIR/$SERVICE_MANIFEST"
+          fi
+          if [ -n "$INGRESS_MANIFEST" ]; then
+            kubectl apply -n "$NAMESPACE" -f "$MANIFEST_DIR/$INGRESS_MANIFEST"
+          fi
+          if [ "$APPLY_KUSTOMIZE" = "true" ]; then
+            kubectl apply -k "$MANIFEST_DIR"
+          fi
+
+          if [ -n "$ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT" ]; then
+            kubectl rollout restart "deployment/$ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT" -n "$NAMESPACE"
+            kubectl rollout status "deployment/$ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT" -n "$NAMESPACE"
+          fi
+        env:
+          NAMESPACE: ${{ inputs.namespace }}
+          MANIFEST_DIR: ${{ inputs.manifest-dir }}
+          DEPLOY_MANIFEST: ${{ inputs.deploy-manifest }}
+          SERVICE_MANIFEST: ${{ inputs.service-manifest }}
+          INGRESS_MANIFEST: ${{ inputs.ingress-manifest }}
+          CONTAINER_NAME: ${{ inputs.container-name }}
+          IMAGE_URI: ${{ inputs.image-uri }}
+          APPLY_KUSTOMIZE: ${{ inputs.apply-kustomize }}
+          ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT: ${{ inputs.additional-rollout-restart-deployment }}

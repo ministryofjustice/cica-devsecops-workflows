@@ -1,0 +1,213 @@
+name: Reusable Security
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version used by the Snyk jobs
+        type: string
+        required: false
+        default: '24.18.1'
+      snyk-version:
+        description: Pinned Snyk CLI version to install
+        type: string
+        required: false
+        default: '1.1306.3'
+      snyk-api-url:
+        description: Snyk API base URL
+        type: string
+        required: false
+        default: 'https://api.snyk.io'
+      working-directory:
+        description: Directory to run npm-related steps from, for non-root projects
+        type: string
+        required: false
+        default: '.'
+      validate-action-pinning:
+        description: Whether to run the action-pinning check
+        type: boolean
+        required: false
+        default: true
+      secret-scan:
+        description: Whether to run the verified-secret scan
+        type: boolean
+        required: false
+        default: true
+      oss-severity:
+        description: Severity threshold for the Snyk Open Source (SCA) scan
+        type: string
+        required: false
+        default: 'high'
+      snyk-code-enabled:
+        description: Whether to run Snyk Code (SAST)
+        type: boolean
+        required: false
+        default: true
+      snyk-code-blocking:
+        description: Whether a Snyk Code finding at/above threshold fails the job
+        type: boolean
+        required: false
+        default: false
+      snyk-iac-enabled:
+        description: Whether to run Snyk IaC
+        type: boolean
+        required: false
+        default: true
+      snyk-iac-blocking:
+        description: Whether a Snyk IaC finding at/above threshold fails the job
+        type: boolean
+        required: false
+        default: false
+      iac-path:
+        description: Path to scan for Snyk IaC (e.g. Kubernetes manifests)
+        type: string
+        required: false
+        default: 'kube_deploy/'
+    secrets:
+      SNYK_CLIENT_ID:
+        required: true
+      SNYK_CLIENT_SECRET:
+        required: true
+
+jobs:
+  validate-action-pinning:
+    if: inputs.validate-action-pinning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Validate GitHub Action pinning
+        run: |
+          set -euo pipefail
+          echo "=== CHECKING GITHUB ACTION PINNING ==="
+          UNPINNED_COUNT=0
+          while IFS= read -r WORKFLOW_FILE; do
+            while IFS=: read -r LINE_NUMBER LINE_CONTENT; do
+              ACTION_REF=$(echo "$LINE_CONTENT" | sed -nE 's/.*uses:[[:space:]]*([^[:space:]#]+).*/\1/p')
+              if [ -z "$ACTION_REF" ]; then
+                continue
+              fi
+              REF="${ACTION_REF##*@}"
+              if ! echo "$REF" | grep -Eq '^[a-f0-9]{40}$'; then
+                echo "::error file=${WORKFLOW_FILE},line=${LINE_NUMBER}::GitHub Action is not pinned to a full commit SHA: ${ACTION_REF}"
+                UNPINNED_COUNT=$((UNPINNED_COUNT + 1))
+              fi
+            done < <(grep -nE 'uses:[[:space:]]*[^[:space:]#]+@[^[:space:]#]+' "$WORKFLOW_FILE" || true)
+          done < <(find .github/workflows .github/actions -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | sort)
+          if [ "$UNPINNED_COUNT" -gt 0 ]; then
+            echo "❌ $UNPINNED_COUNT unpinned GitHub Action reference(s) found"
+            echo "All GitHub Actions must be pinned to a full commit SHA."
+            exit 1
+          fi
+          echo "✅ All GitHub Actions are pinned to full commit SHAs"
+
+  secret-scan:
+    if: inputs.secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Scan for verified secrets
+        uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
+        with:
+          extra_args: --only-verified
+
+  snyk-open-source:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Snyk test
+        run: snyk test --severity-threshold=${{ inputs.oss-severity }} --sarif-file-output=snyk-open-source.sarif
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && hashFiles('snyk-open-source.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9e3211c9a3b9311dfe05da2ed48eea3386f042dd # v4.37.6
+        with:
+          sarif_file: snyk-open-source.sarif
+          category: snyk-open-source
+
+  snyk-code:
+    if: inputs.snyk-code-enabled
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.snyk-code-blocking }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Snyk Code test
+        run: snyk code test --severity-threshold=high --sarif-file-output=snyk-code.sarif
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && hashFiles('snyk-code.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9e3211c9a3b9311dfe05da2ed48eea3386f042dd # v4.37.6
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code
+
+  snyk-iac:
+    if: inputs.snyk-iac-enabled
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.snyk-iac-blocking }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Snyk IaC test
+        run: snyk iac test ${{ inputs.iac-path }} --severity-threshold=high --sarif-file-output=snyk-iac.sarif
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && hashFiles('snyk-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9e3211c9a3b9311dfe05da2ed48eea3386f042dd # v4.37.6
+        with:
+          sarif_file: snyk-iac.sarif
+          category: snyk-iac

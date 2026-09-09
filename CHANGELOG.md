@@ -1,0 +1,22 @@
+# Changelog
+
+All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
+
+No version has been tagged yet — everything below is unreleased scaffold work. Do not reference `@main` from a caller workflow; wait for the first tagged release (see `docs/release-process.md`).
+
+## [Unreleased]
+
+### Added
+- Initial repository scaffold: directory layout for `.github/workflows`, `actions/`, `docs/`.
+- `actions/snyk-auth` — Snyk OAuth client-credentials token exchange composite action, carried over from `cica-apply-web`'s pilot implementation, including the shell-injection hardening applied there (inputs passed via `env:`, not interpolated directly into the script).
+- `.github/workflows/reusable-node-ci.yml` — parameterised npm audit / test / lint workflow, reproducing the equivalent jobs from `cica-apply-web`'s `pipeline.yml`. (Initially shipped with a `run-npm-audit` toggle to skip the audit job entirely; removed after review found no caller had a demonstrated need for it — `npm-audit` is unconditional here, same as the pilot. Re-add only with a concrete justification if one ever comes up.)
+- `.github/workflows/reusable-security.yml` — action pinning, verified-secret scanning (TruffleHog), and Snyk Open Source/Code/IaC, reproducing the equivalent jobs from `cica-apply-web`'s `pipeline.yml`. Two improvements over the pilot baked in while rebuilding this fresh: the action-pinning check now also scans `.github/actions/` in the caller repo (not just `.github/workflows/`, a gap identified in review of the pilot), and the Snyk Code/IaC jobs now correctly pin their Node version via `actions/setup-node`.
+- `.github/workflows/reusable-container.yml` — Docker build, Snyk container scan, smoke test, and SBOM generation, reproducing the equivalent jobs from `cica-apply-web`'s `pipeline.yml`. Two improvements baked in here too: the smoke test's "is it running" check is now a real assertion on `docker ps` output filtered by name and status (the pilot's version ran a bare `docker ps` with nothing checking what it returned, so it could pass even against a crashed container); and an optional `health-check-path` input now supports a real HTTP-level check, left off by default since not every caller's app can safely boot standalone without a database or other live dependency.
+- `.github/workflows/reusable-publish.yml` — AWS OIDC authentication, ECR push, image digest capture, build provenance attestation, and an optional Snyk container-monitor job, reproducing the equivalent jobs from `cica-apply-web`'s `pipeline.yml`. The pilot's container-monitor job was hardcoded to only run on one specific branch (`cw-deploy`) — generalised here as a `run-container-monitor` input the caller sets from its own branch logic, since a generic reusable workflow shouldn't know any particular caller's branch conventions.
+- `.github/workflows/reusable-deploy-kubernetes.yml` — environment-agnostic Kubernetes deploy, reproducing the equivalent jobs from `cica-apply-web`'s `pipeline.yml`. The pilot's rollout-restart step (for its `custom-errors` shared component, needed because Kubernetes doesn't auto-restart pods when a mounted ConfigMap changes) is generalised as an optional `additional-rollout-restart-deployment` input. Doesn't call `snyk-auth`, so it isn't affected by the unreleased-tag pinning issue below.
+- Fixed: `reusable-deploy-kubernetes.yml`'s `deploy` job was missing the job-level `concurrency` guard (`group: deploy-${{ github.ref }}`, `cancel-in-progress: false`) present on every deploy job in the pilot, which prevents two overlapping runs on the same branch racing into the same cluster/namespace. Added — it needs no caller-specific knowledge, unlike the branch `if:` conditions, which correctly stay in the caller's own workflow file.
+
+
+### Known issues
+- `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml`'s calls to `actions/snyk-auth` are pinned to `@v1.0.0` — but that tag doesn't exist yet, since this repo hasn't been pushed to GitHub or had a first release cut. **These lines don't need editing again** — they'll resolve correctly the moment `v1.0.0` is tagged (`git tag v1.0.0 && git push origin v1.0.0`) per `docs/release-process.md`. See the `TODO` comments in each file.
+- This repo has never been pushed to GitHub and has no tagged release. Nothing here should be referenced by a real caller yet — see `docs/onboarding.md` and `docs/release-process.md`.

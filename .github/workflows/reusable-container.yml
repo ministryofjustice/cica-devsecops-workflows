@@ -1,0 +1,181 @@
+name: Reusable Container
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        description: Path to the Dockerfile
+        type: string
+        required: false
+        default: 'Dockerfile'
+      docker-context:
+        description: Docker build context
+        type: string
+        required: false
+        default: '.'
+      build-target:
+        description: Dockerfile build stage/target to build
+        type: string
+        required: false
+        default: 'production'
+      image-name:
+        description: Local tag to build the image as (no registry prefix)
+        type: string
+        required: true
+      artifact-name:
+        description: Name used for the archived-image artifact passed to downstream workflows
+        type: string
+        required: false
+        default: 'docker-image'
+      artifact-retention-days:
+        description: Retention period for the archived-image artifact
+        type: number
+        required: false
+        default: 1
+      policy-path:
+        description: Path to the Snyk policy file used by the container scan
+        type: string
+        required: false
+        default: '.snyk'
+      container-severity:
+        description: Severity threshold for the Snyk container scan
+        type: string
+        required: false
+        default: 'high'
+      snyk-version:
+        description: Pinned Snyk CLI version to install
+        type: string
+        required: false
+        default: '1.1306.3'
+      snyk-api-url:
+        description: Snyk API base URL
+        type: string
+        required: false
+        default: 'https://api.snyk.io'
+      smoke-test-host-port:
+        description: Host-side port used for the container smoke test
+        type: number
+        required: false
+        default: 3001
+      smoke-test-container-port:
+        description: Port the app actually listens on inside the container — must match the app, not the host port
+        type: number
+        required: true
+      health-check-path:
+        description: >
+          Optional HTTP path to curl after starting the container (e.g. '/' or '/health').
+          Leave empty to skip — only the container's process staying up is checked, not
+          that it responds to requests. Only set this if the app can boot and respond
+          standalone, without a live database or other external dependencies the smoke
+          test container won't have — otherwise this can fail a perfectly good image.
+        type: string
+        required: false
+        default: ''
+      sbom-format:
+        description: SBOM output format passed to `snyk container sbom`
+        type: string
+        required: false
+        default: 'cyclonedx1.6+json'
+      sbom-artifact-retention-days:
+        description: Retention period for the SBOM artifact
+        type: number
+        required: false
+        default: 90
+    secrets:
+      SNYK_CLIENT_ID:
+        required: true
+      SNYK_CLIENT_SECRET:
+        required: true
+    outputs:
+      image-artifact:
+        description: Name of the uploaded archived-image artifact, for downstream workflows to download
+        value: ${{ inputs.artifact-name }}
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Build docker image
+        run: docker build --target ${{ inputs.build-target }} --no-cache -f ${{ inputs.dockerfile }} -t ${{ inputs.image-name }} ${{ inputs.docker-context }}
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Snyk container scan
+        run: snyk container test ${{ inputs.image-name }} --file=${{ inputs.dockerfile }} --severity-threshold=${{ inputs.container-severity }} --policy-path=${{ inputs.policy-path }} --sarif-file-output=snyk-container.sarif
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+      - name: Upload SARIF to GitHub Security tab
+        if: always() && hashFiles('snyk-container.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9e3211c9a3b9311dfe05da2ed48eea3386f042dd # v4.37.6
+        with:
+          sarif_file: snyk-container.sarif
+          category: snyk-container
+      - name: Archive Docker image
+        run: docker save -o image.tar ${{ inputs.image-name }}:latest
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: image.tar
+          retention-days: ${{ inputs.artifact-retention-days }}
+
+  container-smoke-test:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ inputs.artifact-name }}
+      - name: Load archived Docker image
+        run: docker load -i image.tar
+      - name: Start container
+        run: docker run -d -p ${{ inputs.smoke-test-host-port }}:${{ inputs.smoke-test-container-port }} --restart=always --name smoke-test ${{ inputs.image-name }}:latest
+      - name: Health check
+        if: inputs.health-check-path != ''
+        run: |
+          set -euo pipefail
+          sleep 5
+          curl --fail --silent --max-time 10 "http://localhost:${{ inputs.smoke-test-host-port }}${{ inputs.health-check-path }}"
+      - name: Confirm container is still running
+        run: docker ps --filter "name=smoke-test" --filter "status=running" | grep smoke-test
+      - name: Stop container
+        if: always()
+        run: docker stop smoke-test || true
+
+  sbom-generate:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ inputs.artifact-name }}
+      - name: Load archived Docker image
+        run: docker load -i image.tar
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Generate container SBOM
+        run: snyk container sbom ${{ inputs.image-name }} --format=${{ inputs.sbom-format }} > container-sbom.cyclonedx.json
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: container-sbom
+          path: container-sbom.cyclonedx.json
+          retention-days: ${{ inputs.sbom-artifact-retention-days }}
