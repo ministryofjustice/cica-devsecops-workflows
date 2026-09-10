@@ -2,7 +2,10 @@
 
 All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
 
-## [Unreleased]
+## [1.0.1] - 2026-09-10
+
+### Added
+- `.github/workflows/ci.yml` — this repo's own PR/push CI: YAML syntax validation, action-pinning enforcement, and verified-secret scanning against this repo's own files (previously done manually, ad hoc). 
 
 ## [1.0.0] - 2026-09-10
 

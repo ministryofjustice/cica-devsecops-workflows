@@ -23,12 +23,14 @@ See `CHANGELOG.md`'s "Known issues".
 
 ```
 cica-devsecops-workflows/
-├── .github/workflows/     # the reusable workflows themselves (workflow_call)
+├── .github/workflows/     # the reusable workflows (workflow_call) plus this repo's own PR CI
 ├── actions/                # composite actions shared across the reusable workflows
 ├── docs/                   # inputs/outputs reference, onboarding guide, release process
 ├── CHANGELOG.md
 └── README.md
 ```
+
+This repo's own PRs are checked by `.github/workflows/ci.yml` — YAML validation, action-pinning enforcement, and secret scanning against this repo's own files. It's a normal `pull_request`/`push`-triggered workflow, not a reusable one, so it's not part of what a caller invokes.
 
 ## Using a reusable workflow from this repo
 
