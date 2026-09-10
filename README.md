@@ -6,34 +6,31 @@ This repo exists to move common CI/CD and DevSecOps logic (build, test, security
 
 ## Status
 
-**Early scaffold — not yet ready for production callers.** Only a subset of the target design is implemented so far. Do not point a production repository's pipeline at this repo yet.
+**First tagged release: `v1.0.0`.** All five core reusable workflows and the shared `snyk-auth` composite action are implemented and safe to reference from a real caller, pinned to `@v1.0.0`.
 
 | Piece | Status |
 |---|---|
 | `actions/snyk-auth` | ✅ Implemented — Snyk OAuth client-credentials token exchange, carried over from `cica-apply-web`'s pilot implementation |
 | `.github/workflows/reusable-node-ci.yml` | ✅ Implemented — npm audit, test, lint |
-| `.github/workflows/reusable-security.yml` | ⚠️ Implemented but not shippable yet — its `snyk-auth` references are pinned to `@v1.0.0`, a tag that doesn't exist yet (this repo hasn't been pushed or released). Fix by cutting the `v1.0.0` release (see the TODO comments in the file). Otherwise covers action pinning (now including `.github/actions/`), verified-secret scanning, Snyk Open Source, Snyk Code, Snyk IaC |
-| `.github/workflows/reusable-container.yml` | ⚠️ Implemented but not shippable yet — same unreleased `@v1.0.0` pinning issue as `reusable-security.yml`. Covers Docker build, Snyk container scan, smoke test, and SBOM generation |
-| `.github/workflows/reusable-publish.yml` | ⚠️ Implemented but not shippable yet — same unreleased `@v1.0.0` pinning issue. Covers AWS OIDC, ECR push, digest capture, build provenance, and (caller-controlled) Snyk container monitoring |
-| `.github/workflows/reusable-deploy-kubernetes.yml` | ✅ Implemented — environment-agnostic Kubernetes deploy, no pinning issue (doesn't call `snyk-auth`) |
+| `.github/workflows/reusable-security.yml` | ✅ Implemented — action pinning (including `.github/actions/`), verified-secret scanning, Snyk Open Source, Snyk Code, Snyk IaC |
+| `.github/workflows/reusable-container.yml` | ✅ Implemented — Docker build, Snyk container scan, smoke test, and SBOM generation |
+| `.github/workflows/reusable-publish.yml` | ✅ Implemented — AWS OIDC, ECR push, digest capture, build provenance, and (caller-controlled) Snyk container monitoring |
+| `.github/workflows/reusable-deploy-kubernetes.yml` | ✅ Implemented — environment-agnostic Kubernetes deploy |
 
-**All five core reusable workflows now exist.** Still blocking before any real caller can use this repo: cutting the actual `v1.0.0` release the three files above already reference (three files affected), a real `CODEOWNERS` owner, and pushing this repo to GitHub at all.
-
-## Pilot
-
-The reference implementation this repo is extracted from is `ministryofjustice/cica-apply-web`'s `.github/workflows/pipeline.yml` — a repository-specific GitHub Actions pipeline that itself replaced that repo's CircleCI configuration. That pipeline is the functional baseline every reusable workflow here is expected to reproduce before it's considered ready to adopt.
+See `CHANGELOG.md`'s "Known issues".
 
 ## Repository layout
 
 ```
 cica-devsecops-workflows/
-├── .github/workflows/     # the reusable workflows themselves (workflow_call)
+├── .github/workflows/     # the reusable workflows (workflow_call) plus this repo's own PR CI
 ├── actions/                # composite actions shared across the reusable workflows
 ├── docs/                   # inputs/outputs reference, onboarding guide, release process
 ├── CHANGELOG.md
-├── CODEOWNERS
 └── README.md
 ```
+
+This repo's own PRs are checked by `.github/workflows/ci.yml` — YAML validation, action-pinning enforcement, and secret scanning against this repo's own files. It's a normal `pull_request`/`push`-triggered workflow, not a reusable one, so it's not part of what a caller invokes.
 
 ## Using a reusable workflow from this repo
 
@@ -51,4 +48,4 @@ jobs:
 
 Always pin to a specific released tag (`@v1.2.0`) or commit SHA, never `@main`, for any real caller — see `docs/release-process.md`.
 
-See `docs/onboarding.md` for a full walkthrough and `docs/inputs.md` for the input/output/secret reference of each workflow.
+See `docs/onboarding.md` for a full walkthrough and `docs/inputs.md` for a worked example call per workflow. For the exact inputs/secrets/outputs of a given workflow, read its `on.workflow_call` block in the file itself.

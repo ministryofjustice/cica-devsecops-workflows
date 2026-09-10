@@ -38,6 +38,17 @@ on:
         type: string
         required: false
         default: 'high'
+      run-snyk-monitor:
+        description: >
+          Whether to run `snyk monitor`, which uploads a dependency snapshot to Snyk's dashboard
+          for ongoing monitoring (unlike snyk-open-source's `snyk test`, this doesn't block the
+          job — it just lets Snyk alert on new vulnerabilities disclosed later). The pilot only
+          ran this on one specific deploy branch; set this from the caller's own `if:` logic
+          based on its own branch conventions, e.g. run-snyk-monitor: ${{ github.ref ==
+          'refs/heads/cw-deploy' }}.
+        type: boolean
+        required: false
+        default: true
       snyk-code-enabled:
         description: Whether to run Snyk Code (SAST)
         type: boolean
@@ -132,7 +143,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -147,6 +158,34 @@ jobs:
         with:
           sarif_file: snyk-open-source.sarif
           category: snyk-open-source
+
+  snyk-monitor:
+    if: inputs.run-snyk-monitor
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+      - run: npm ci
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+      - name: Snyk monitor
+        run: snyk monitor
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
 
   snyk-code:
     if: inputs.snyk-code-enabled
@@ -164,7 +203,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -196,7 +235,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}

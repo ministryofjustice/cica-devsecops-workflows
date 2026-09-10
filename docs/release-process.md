@@ -15,10 +15,10 @@ Every repository that calls a workflow from here is trusting this repo not to br
 
 ## Making a change to a reusable workflow
 
-1. Open a PR against this repo. Every change needs review — see `CODEOWNERS`.
+1. Open a PR against this repo.
 2. If the change affects behaviour a caller depends on (not just internal refactoring), test it end-to-end against a real caller on a throwaway branch pointed at your PR's branch/SHA before merging.
 3. Merge to `main` once reviewed.
-4. **Before tagging, bump the internal `snyk-auth` self-references to the version you're about to release.** `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` each call `actions/snyk-auth` via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`) rather than a local path — see the design note in `docs/inputs.md` for why a local path doesn't work here. Tagging the repo does **not** update these lines automatically; they're just text until someone edits them. Do this every release, regardless of whether `snyk-auth` itself changed — don't rely on judgement calls about whether it "needs" updating. Verify nothing was missed:
+4. **Before tagging, bump the internal `snyk-auth` self-references to the version you're about to release.** `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` each call `actions/snyk-auth` via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`) rather than a local path — see the design note in `docs/inputs.md` for why a local path doesn't work here. Tagging the repo does **not** update these lines automatically; they're just text until someone edits them. Do this every release, regardless of whether `snyk-auth` itself changed. Verify nothing was missed:
    ```
    grep -rn "snyk-auth@v" .github/workflows/
    ```
@@ -29,8 +29,5 @@ Every repository that calls a workflow from here is trusting this repo not to br
 
 ## Rolling out a new version to callers
 
-Don't push a new version to every caller at once. Move repositories forward deliberately, in the same staged-wave order the source Implementation Guide lays out (pilot → similar deployable services → repos with different integration patterns → libraries). (A tool like Renovate or Dependabot can eventually automate raising the version-bump PRs against each caller, but that's a later optimisation, not a requirement for the first release.)
+Don't push a new version to every caller at once. Move repositories forward deliberately, in staged-wave order (pilot → similar deployable services → repos with different integration patterns → libraries).
 
-## Before the first `v1.0.0`
-
-Nothing in this repo has been tagged yet. Don't onboard a production repository (see `docs/onboarding.md`) until there's an actual release to point at.

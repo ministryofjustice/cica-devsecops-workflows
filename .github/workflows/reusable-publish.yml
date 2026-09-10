@@ -140,7 +140,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0 # TODO: this tag does not exist yet — create it (git tag v1.0.0 && git push origin v1.0.0) once this repo is pushed and the first release is cut
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
