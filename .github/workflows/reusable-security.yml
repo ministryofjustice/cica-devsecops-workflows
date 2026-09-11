@@ -44,8 +44,8 @@ on:
           for ongoing monitoring (unlike snyk-open-source's `snyk test`, this doesn't block the
           job — it just lets Snyk alert on new vulnerabilities disclosed later). The pilot only
           ran this on one specific deploy branch; set this from the caller's own `if:` logic
-          based on its own branch conventions, e.g. run-snyk-monitor: ${{ github.ref ==
-          'refs/heads/cw-deploy' }}.
+          based on its own branch conventions rather than relying on a branch name baked in
+          here. See docs/inputs.md for a worked example.
         type: boolean
         required: false
         default: true
