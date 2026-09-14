@@ -97,6 +97,12 @@ jobs:
               if [ -z "$ACTION_REF" ]; then
                 continue
               fi
+              # References to cica-devsecops-workflows itself are governed by
+              # docs/release-process.md's tag policy (a version tag like @v1.2.0 is the
+              # recommended default there), not the third-party SHA-pinning policy checked below.
+              if [[ "$ACTION_REF" == ministryofjustice/cica-devsecops-workflows/* ]]; then
+                continue
+              fi
               REF="${ACTION_REF##*@}"
               if ! echo "$REF" | grep -Eq '^[a-f0-9]{40}$'; then
                 echo "::error file=${WORKFLOW_FILE},line=${LINE_NUMBER}::GitHub Action is not pinned to a full commit SHA: ${ACTION_REF}"
