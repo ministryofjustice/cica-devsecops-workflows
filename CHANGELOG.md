@@ -4,6 +4,11 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-11
+
+### Fixed
+- `reusable-security.yml`'s `validate-action-pinning` job flagged callers' own correct references to `cica-devsecops-workflows` (e.g. `@v1.0.2`) as unpinned, since it only accepted full 40-character commit SHAs with no exception. That contradicted `docs/release-process.md`, which recommends a version tag as the default way to reference this repo. Added the same exclusion already present in this repo's own `ci.yml` self-check, scoped to `ministryofjustice/cica-devsecops-workflows/*` references only — third-party actions (`actions/checkout`, etc.) still require full SHA pinning. Discovered when `cica-apply-web` upgraded to `v1.0.2` and its own `validate-action-pinning` job failed on its five `uses:` lines referencing this repo.
+
 ## [1.0.2] - 2026-09-11
 
 ### Fixed
