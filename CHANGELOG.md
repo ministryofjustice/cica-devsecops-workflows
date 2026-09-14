@@ -4,19 +4,21 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-11
+
 ### Fixed
-- `reusable-security.yml`'s `run-snyk-monitor` input description no longer contains a literal `${{ }}` expression — see the `v1.0.0` entry below for what this broke. Rephrased the example as prose instead; the actual worked example lives in `docs/inputs.md`, which GitHub Actions never parses, so it carries no risk of the same bug. Not yet confirmed working end-to-end — see `docs/release-process.md`'s test-before-tag step. Rename this section once that's actually passed.
+- `reusable-publish.yml`'s `ECR_REGISTRY_URL` moved from `secrets:` to `inputs:` (as `ecr-registry-url`). GitHub Actions silently drops any job output whose value contains a secret; `image-uri` was built by concatenating `secrets.ECR_REGISTRY_URL` into a string, so the output never actually propagated (visible only as `Warning: Skip output image-uri since it may contain secret` in the job log). This surfaced as `deploy-staging` receiving an empty `image-uri` and failing with `spec.template.spec.containers[0].image: Required value`. An ECR registry hostname isn't actually sensitive — it's just `account-id.dkr.ecr.region.amazonaws.com`, and the account-id portion was already a non-secret var (`AWS_ECR_REGISTRY_ID`) in the original pilot, so this also fixes a pre-existing inconsistency, not something this migration introduced.
 
 ## [1.0.1] - 2026-09-10
 
-**⚠️ Broken — do not use, fixed in a later version once this fix is confirmed.** Inherits the `reusable-security.yml` parse error from `v1.0.0` below (this version only added `ci.yml` on top, didn't touch `reusable-security.yml`).
+**⚠️ Broken — do not use, fixed in `v1.0.2`.** Inherits the `reusable-security.yml` parse error from `v1.0.0` below (this version only added `ci.yml` on top, didn't touch `reusable-security.yml`).
 
 ### Added
 - `.github/workflows/ci.yml` — this repo's own PR/push CI: YAML syntax validation, action-pinning enforcement, and verified-secret scanning against this repo's own files (previously done manually, ad hoc). 
 
 ## [1.0.0] - 2026-09-10
 
-**⚠️ Broken — do not use, fixed in a later version once this fix is confirmed.** `reusable-security.yml`'s `run-snyk-monitor` input `description` contained a literal `${{ github.ref == 'refs/heads/cw-deploy' }}` expression, meant only as prose showing an example value. GitHub Actions evaluates `${{ }}` wherever it appears in a workflow file, including inside `description:` text — and the `github` context isn't available in that evaluation scope, so every caller of `reusable-security.yml` failed at parse time with `Unrecognized named-value: 'github'`. Discovered when `cica-apply-web` made its first real call against this workflow. No caller successfully ran against either this version or `v1.0.1` before the bug was found.
+**⚠️ Broken — do not use, fixed in `v1.0.2`.** `reusable-security.yml`'s `run-snyk-monitor` input `description` contained a literal `${{ github.ref == 'refs/heads/cw-deploy' }}` expression, meant only as prose showing an example value. GitHub Actions evaluates `${{ }}` wherever it appears in a workflow file, including inside `description:` text — and the `github` context isn't available in that evaluation scope, so every caller of `reusable-security.yml` failed at parse time with `Unrecognized named-value: 'github'`. Discovered when `cica-apply-web` made its first real call against this workflow. No caller successfully ran against either this version or `v1.0.1` before the bug was found.
 
 ### Added
 - Initial repository scaffold: directory layout for `.github/workflows`, `actions/`, `docs/`.
