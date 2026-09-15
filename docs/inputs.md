@@ -116,10 +116,10 @@ jobs:
       image-name: cica/cica-repo-dev
       ecr-region: ${{ vars.ECR_REGION }}
       ecr-repository: ${{ vars.ECR_REPOSITORY }}
+      ecr-registry-url: ${{ vars.ECR_REGISTRY_URL }}
       run-container-monitor: ${{ github.ref == 'refs/heads/cw-deploy' }}
     secrets:
       ECR_ROLE_TO_ASSUME: ${{ secrets.ECR_ROLE_TO_ASSUME }}
-      ECR_REGISTRY_URL: ${{ secrets.ECR_REGISTRY_URL }}
       SNYK_CLIENT_ID: ${{ secrets.SNYK_CLIENT_ID }}
       SNYK_CLIENT_SECRET: ${{ secrets.SNYK_CLIENT_SECRET }}
 ```

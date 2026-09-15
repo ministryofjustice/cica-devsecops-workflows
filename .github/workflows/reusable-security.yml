@@ -109,7 +109,7 @@ jobs:
                 UNPINNED_COUNT=$((UNPINNED_COUNT + 1))
               fi
             done < <(grep -nE 'uses:[[:space:]]*[^[:space:]#]+@[^[:space:]#]+' "$WORKFLOW_FILE" || true)
-          done < <(find .github/workflows .github/actions -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | sort)
+          done < <(find .github/workflows .github/actions actions -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | sort)
           if [ "$UNPINNED_COUNT" -gt 0 ]; then
             echo "❌ $UNPINNED_COUNT unpinned GitHub Action reference(s) found"
             echo "All GitHub Actions must be pinned to a full commit SHA."
@@ -149,7 +149,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.4
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -168,6 +168,8 @@ jobs:
   snyk-monitor:
     if: inputs.run-snyk-monitor
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -183,7 +185,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.4
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -209,7 +211,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.4
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -241,7 +243,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.0
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.4
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
