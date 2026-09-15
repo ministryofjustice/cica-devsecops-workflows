@@ -4,6 +4,14 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-15
+
+### Fixed
+- `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml`'s internal `actions/snyk-auth` self-references were still pinned to `@v1.0.0`, unchanged since the initial release. `docs/release-process.md` step 4 requires bumping these before every tag, but that step was missed for `v1.0.1`, `v1.0.2`, and `v1.0.3`. All seven references now point to `v1.0.4`.
+- `reusable-security.yml`'s `validate-action-pinning` job only scanned `.github/workflows` and `.github/actions` in the caller repo, missing a top-level `actions/` directory — the same layout this repo itself uses for `actions/snyk-auth`. Any caller keeping composite actions there had them skipped by the pinning check. Added `actions` to the scanned paths.
+- `reusable-security.yml`'s `snyk-monitor` job had no explicit `permissions:` block. Added `contents: read`, matching the other jobs in this workflow and the principle of least privilege.
+- `docs/inputs.md`'s `reusable-publish.yml` example call still showed `ECR_REGISTRY_URL` passed under `secrets:`, left over from before the `v1.0.2` fix moved it to the `ecr-registry-url` input. Updated the example to match.
+
 ## [1.0.3] - 2026-09-11
 
 ### Fixed
