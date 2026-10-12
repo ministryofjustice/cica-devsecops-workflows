@@ -4,6 +4,12 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-12
+
+### Fixed
+- `reusable-security.yml`'s `snyk-open-source`, `snyk-code`, and `snyk-iac` jobs, and `reusable-container.yml`'s `docker-build` job, were missing `actions: read` in their `permissions:` blocks.
+
+
 ## [1.0.4] - 2026-09-15
 
 ### Fixed
