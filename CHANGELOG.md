@@ -4,6 +4,11 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-10-12
+
+### Fixed
+- Same recurring mistake as `v1.0.4`: the 7 internal `actions/snyk-auth` self-references across `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` were left pinned to `@v1.0.4` when `v1.0.5` was tagged. Bumped to `@v1.0.6`, and fixed `docs/inputs.md`'s example, which was still showing `@v1.0.0`.
+
 ## [1.0.5] - 2026-10-12
 
 ### Fixed
