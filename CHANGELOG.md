@@ -4,6 +4,11 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-10-12
+
+### Changed
+- `reusable-deploy-kubernetes.yml`'s `ingress-manifest` and `apply-kustomize` inputs now default to off (`''` and `false`), rather than `'ingress.yml'`/`true`. Of the current callers, only `cica-apply-web` uses an ingress/kustomize pattern; `notify-gateway` already had to explicitly override both to opt out. Flipping the default makes "off" the common case and "on" the opt-in, rather than the reverse. `cica-apply-web`'s `pipeline.yml` was updated to explicitly set both inputs on its four deploy jobs, so its behaviour is unchanged.
+
 ## [1.0.6] - 2026-10-12
 
 ### Fixed
