@@ -37,12 +37,12 @@ on:
         description: Filename (within manifest-dir) of the Ingress manifest. Leave empty to skip.
         type: string
         required: false
-        default: 'ingress.yml'
+        default: ''
       apply-kustomize:
         description: Whether to also run `kubectl apply -k` against manifest-dir (for a shared base/kustomization.yaml pattern)
         type: boolean
         required: false
-        default: true
+        default: false
       additional-rollout-restart-deployment:
         description: >
           Name of an additional Deployment to restart and wait on after applying (e.g. a shared
