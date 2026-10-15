@@ -4,7 +4,12 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
-## [1.0.7] - 2026-10-12
+## [1.0.8] - 2026-10-15
+
+### Fixed
+- Same recurring mistake as `v1.0.4` and `v1.0.6`: the 7 internal `actions/snyk-auth` self-references, plus `docs/inputs.md`'s example, were left pinned to `@v1.0.6` when `v1.0.7` was tagged. Bumped to `@v1.0.8`. `v1.0.7` itself is still usable — this is a version-consistency fix (callers on `v1.0.7` pull in the `v1.0.6` snyk-auth action), not a functional break — but not retagged, per this repo's policy of not force-moving a published tag.
+
+## [1.0.7] - 2026-10-15
 
 ### Changed
 - `reusable-deploy-kubernetes.yml`'s `ingress-manifest` and `apply-kustomize` inputs now default to off (`''` and `false`), rather than `'ingress.yml'`/`true`. Of the current callers, only `cica-apply-web` uses an ingress/kustomize pattern; `notify-gateway` already had to explicitly override both to opt out. Flipping the default makes "off" the common case and "on" the opt-in, rather than the reverse. `cica-apply-web`'s `pipeline.yml` was updated to explicitly set both inputs on its four deploy jobs, so its behaviour is unchanged.
