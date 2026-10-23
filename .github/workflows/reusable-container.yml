@@ -96,7 +96,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.8
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.10
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -156,7 +156,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.8
+        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.10
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
