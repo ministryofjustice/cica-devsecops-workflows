@@ -7,7 +7,7 @@ on:
         description: Node.js version to use across all jobs
         type: string
         required: false
-        default: '24.18.1'
+        default: '24.22.1'
       npm-audit-level:
         description: npm audit severity threshold (passed to --audit-level)
         type: string

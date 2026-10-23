@@ -41,7 +41,7 @@ jobs:
   ci:
     uses: ministryofjustice/cica-devsecops-workflows/.github/workflows/reusable-node-ci.yml@v1.0.0
     with:
-      node-version: '24.18.1'
+      node-version: '24.22.1'
       test-command: 'npm test'
       lint-command: 'npm run lint'
 ```
