@@ -4,6 +4,9 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ## [Unreleased]
 
+### Added
+- `reusable-deploy-kubernetes.yml`'s new `additional-container-name` input (optional, default `''`). When set, the "Deploy to the cluster" step's `kubectl set image` call also patches this second container name, using the same `image-uri` as the primary `container-name`. Added for `cica-apply-data-capture-service`'s Prod environment, which has an `initContainer` (`dcs-init-checks`) that bundles a `supported-template-versions.json` file read at pod startup — its image needs to stay in sync with the main container's for that check to mean anything, unlike a purely cosmetic container. Does not change behaviour for any existing caller, since the default is empty.
+
 ## [1.0.8] - 2026-10-15
 
 ### Fixed
