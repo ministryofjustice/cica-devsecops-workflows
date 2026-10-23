@@ -19,6 +19,14 @@ on:
         description: Name of the container inside the Deployment manifest whose image should be updated
         type: string
         required: true
+      additional-container-name:
+        description: >
+          Name of a second container in the same pod spec whose image should also be
+          updated, using the same image-uri as the primary container-name (e.g. an
+          initContainer that shares the main app's image). Leave empty to skip.
+        type: string
+        required: false
+        default: ''
       image-uri:
         description: Full image reference to deploy (registry/repository:tag) — typically reusable-publish.yml's image-uri output
         type: string
@@ -93,7 +101,11 @@ jobs:
       - name: Deploy to the cluster
         run: |
           set -euo pipefail
-          kubectl set image -f "$MANIFEST_DIR/$DEPLOY_MANIFEST" "$CONTAINER_NAME=$IMAGE_URI" --local -o yaml \
+          SET_IMAGE_ARGS="$CONTAINER_NAME=$IMAGE_URI"
+          if [ -n "$ADDITIONAL_CONTAINER_NAME" ]; then
+            SET_IMAGE_ARGS="$SET_IMAGE_ARGS $ADDITIONAL_CONTAINER_NAME=$IMAGE_URI"
+          fi
+          kubectl set image -f "$MANIFEST_DIR/$DEPLOY_MANIFEST" $SET_IMAGE_ARGS --local -o yaml \
             | kubectl apply -n "$NAMESPACE" -f -
 
           if [ -n "$SERVICE_MANIFEST" ]; then
@@ -117,6 +129,7 @@ jobs:
           SERVICE_MANIFEST: ${{ inputs.service-manifest }}
           INGRESS_MANIFEST: ${{ inputs.ingress-manifest }}
           CONTAINER_NAME: ${{ inputs.container-name }}
+          ADDITIONAL_CONTAINER_NAME: ${{ inputs.additional-container-name }}
           IMAGE_URI: ${{ inputs.image-uri }}
           APPLY_KUSTOMIZE: ${{ inputs.apply-kustomize }}
           ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT: ${{ inputs.additional-rollout-restart-deployment }}
