@@ -7,7 +7,7 @@ on:
         description: Node.js version used by the Snyk jobs
         type: string
         required: false
-        default: '24.18.1'
+        default: '24.22.1'
       snyk-version:
         description: Pinned Snyk CLI version to install
         type: string
