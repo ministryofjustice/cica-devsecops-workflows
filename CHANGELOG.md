@@ -2,7 +2,23 @@
 
 All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
 
-## [Unreleased]
+## [1.0.11] - 2026-10-26
+
+### Added
+- `reusable-deploy-kubernetes.yml`'s new `additional-container-name` input (optional, default `''`). When set, the "Deploy to the cluster" step's `kubectl set image` call also patches this second container name, using the same `image-uri` as the primary `container-name`. Added for `cica-apply-data-capture-service`'s Prod environment, which has an `initContainer` (`dcs-init-checks`) that bundles a `supported-template-versions.json` file read at pod startup, its image needs to stay in sync with the main container's for that check to mean anything, since the check runs against the live database on every pod start, not just at build time. Reproduces the same two-container `kubectl set image` pattern DCS's old CircleCI pipeline already used; does not change behaviour for any existing caller, since the default is empty.
+
+## [1.0.10] - 2026-10-23
+
+### Fixed
+- The 7 internal `actions/snyk-auth` self-references, plus `docs/inputs.md`'s example, were left pinned to `@v1.0.8` when `v1.0.9` was tagged — the same recurring miss as `v1.0.4`, `v1.0.6`, and `v1.0.8` (release-process step 4). All eight references now read `@v1.0.10`. **Fixed forward in this patch rather than retagging `v1.0.9`**: consistent with how `v1.0.4`/`v1.0.6`/`v1.0.8` were each handled and with this repo's policy of not force-moving a published tag. `v1.0.9` remains usable — it's a version-consistency issue (a caller on `v1.0.9` pulls in the `v1.0.8` snyk-auth action), not a functional break, since `snyk-auth` itself was unchanged between these versions.
+
+## [1.0.9] - 2026-10-23
+
+### Changed
+- Bumped the default `node-version` in `reusable-node-ci.yml` and `reusable-security.yml` from `24.18.1` to `24.22.1`, and updated `ci.yml`'s own `actions/setup-node` pin and the `docs/`/`README.md` example calls to match. `24.22.1` is the patched 24.x release for the October 2026 Node.js security releases (c-ares, OpenSSL, undici, brotli OOB-write RCE, TLS hostname bypasses — highest severity HIGH). Callers that don't set `node-version` explicitly (currently `cica-apply-web` and `cica-apply-data-capture-service`) only pick this up once they bump their `@v1.0.x` reference to a tag containing this change; callers that pin `node-version` themselves (`cica-apply-notify-gateway`) are unaffected until they bump their own value. The deployed runtime in each app is its Dockerfile base image, handled separately in each app repo.
+
+### Known issues
+- Shipped with the 7 internal `actions/snyk-auth` self-references still pinned to `@v1.0.8` (release-process step 4 was missed). Not a functional break — corrected in `v1.0.10`. Prefer `@v1.0.10` over `@v1.0.9` as a caller.
 
 ## [1.0.8] - 2026-10-15
 
