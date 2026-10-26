@@ -2,7 +2,10 @@
 
 All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
 
-## [Unreleased]
+## [1.0.11] - 2026-10-26
+
+### Added
+- `reusable-deploy-kubernetes.yml`'s new `additional-container-name` input (optional, default `''`). When set, the "Deploy to the cluster" step's `kubectl set image` call also patches this second container name, using the same `image-uri` as the primary `container-name`. Added for `cica-apply-data-capture-service`'s Prod environment, which has an `initContainer` (`dcs-init-checks`) that bundles a `supported-template-versions.json` file read at pod startup, its image needs to stay in sync with the main container's for that check to mean anything, since the check runs against the live database on every pod start, not just at build time. Reproduces the same two-container `kubectl set image` pattern DCS's old CircleCI pipeline already used; does not change behaviour for any existing caller, since the default is empty.
 
 ## [1.0.10] - 2026-10-23
 
@@ -16,6 +19,11 @@ All notable changes to this repository are documented here. Format loosely follo
 
 ### Known issues
 - Shipped with the 7 internal `actions/snyk-auth` self-references still pinned to `@v1.0.8` (release-process step 4 was missed). Not a functional break — corrected in `v1.0.10`. Prefer `@v1.0.10` over `@v1.0.9` as a caller.
+
+## [1.0.8] - 2026-10-15
+
+### Fixed
+- Same recurring mistake as `v1.0.4` and `v1.0.6`: the 7 internal `actions/snyk-auth` self-references, plus `docs/inputs.md`'s example, were left pinned to `@v1.0.6` when `v1.0.7` was tagged. Bumped to `@v1.0.8`. `v1.0.7` itself is still usable — this is a version-consistency fix (callers on `v1.0.7` pull in the `v1.0.6` snyk-auth action), not a functional break — but not retagged, per this repo's policy of not force-moving a published tag.
 
 ## [1.0.7] - 2026-10-15
 

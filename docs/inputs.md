@@ -37,7 +37,7 @@ Composite action. Exchanges a Snyk service account's OAuth client ID/secret for 
 ```yaml
 - name: Get Snyk OAuth token
   id: snyk-auth
-  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.10
+  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
   with:
     client-id: ${{ secrets.SNYK_CLIENT_ID }}
     client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
