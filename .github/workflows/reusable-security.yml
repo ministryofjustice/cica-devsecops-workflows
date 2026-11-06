@@ -33,6 +33,11 @@ on:
         type: boolean
         required: false
         default: true
+      snyk-open-source-enabled:
+        description: Whether to run Snyk Open Source (SCA). Disable only for repositories with no package-lock.json
+        type: boolean
+        required: false
+        default: true
       oss-severity:
         description: Severity threshold for the Snyk Open Source (SCA) scan
         type: string
@@ -130,6 +135,7 @@ jobs:
           extra_args: --only-verified
 
   snyk-open-source:
+    if: inputs.snyk-open-source-enabled
     runs-on: ubuntu-latest
     permissions:
       contents: read

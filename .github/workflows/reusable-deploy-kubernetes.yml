@@ -61,6 +61,18 @@ on:
         type: string
         required: false
         default: ''
+      configmap-name:
+        description: >
+          Name of a ConfigMap to regenerate from configmap-from-file before the Deployment is
+          applied, so the pods started by this rollout mount the new content. Leave empty to skip.
+        type: string
+        required: false
+        default: ''
+      configmap-from-file:
+        description: Path to the file to build configmap-name from. Required if configmap-name is set.
+        type: string
+        required: false
+        default: ''
     secrets:
       KUBE_CERT:
         required: true
@@ -101,6 +113,10 @@ jobs:
       - name: Deploy to the cluster
         run: |
           set -euo pipefail
+          if [ -n "$CONFIGMAP_NAME" ]; then
+            kubectl create configmap "$CONFIGMAP_NAME" --from-file="$CONFIGMAP_FROM_FILE" -n "$NAMESPACE" -o yaml --dry-run=client \n              | kubectl replace --force -n "$NAMESPACE" -f -
+          fi
+
           SET_IMAGE_ARGS="$CONTAINER_NAME=$IMAGE_URI"
           if [ -n "$ADDITIONAL_CONTAINER_NAME" ]; then
             SET_IMAGE_ARGS="$SET_IMAGE_ARGS $ADDITIONAL_CONTAINER_NAME=$IMAGE_URI"
@@ -133,3 +149,5 @@ jobs:
           IMAGE_URI: ${{ inputs.image-uri }}
           APPLY_KUSTOMIZE: ${{ inputs.apply-kustomize }}
           ADDITIONAL_ROLLOUT_RESTART_DEPLOYMENT: ${{ inputs.additional-rollout-restart-deployment }}
+          CONFIGMAP_NAME: ${{ inputs.configmap-name }}
+          CONFIGMAP_FROM_FILE: ${{ inputs.configmap-from-file }}
