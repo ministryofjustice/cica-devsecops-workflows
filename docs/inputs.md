@@ -50,7 +50,7 @@ Composite action. Exchanges a Snyk service account's OAuth client ID/secret for 
 
 ## `.github/workflows/reusable-security.yml`
 
-Runs `validate-action-pinning` (now scanning both `.github/workflows` **and** `.github/actions` in the caller repo), `secret-scan` (TruffleHog, verified secrets only), `snyk-open-source` (SCA, blocking), `snyk-monitor` (uploads a dependency snapshot to Snyk's dashboard, non-blocking), `snyk-code` (SAST, informational by default), and `snyk-iac` (informational by default).
+Runs `validate-action-pinning` (now scanning both `.github/workflows` **and** `.github/actions` in the caller repo), `secret-scan` (TruffleHog, verified secrets only), `snyk-open-source` (SCA, blocking, skippable with `snyk-open-source-enabled: false` for repositories with no `package-lock.json`), `snyk-monitor` (uploads a dependency snapshot to Snyk's dashboard, non-blocking), `snyk-code` (SAST, informational by default), and `snyk-iac` (informational by default).
 
 `snyk-monitor` is different from `snyk-open-source`'s `snyk test`: it doesn't check anything or fail the job, it just gives Snyk's dashboard a snapshot to watch for vulnerabilities disclosed *after* this run. Its `run-snyk-monitor` input defaults to `true`, but — same reasoning as `reusable-publish.yml`'s `run-container-monitor` — the pilot only ran this on one specific deploy branch, so a caller should set it from its own branch logic rather than relying on a default.
 
@@ -131,6 +131,8 @@ jobs:
 Single `deploy` job: authenticates to the cluster (same format-tolerant cert handling as the pilot — accepts either raw PEM or base64), patches and applies the Deployment manifest, optionally applies Service/Ingress manifests and a kustomize base, and optionally restarts+waits on an additional shared Deployment.
 
 **Design note**: the pilot's rollout-restart step was specific to its own `custom-errors` shared component (a ConfigMap-backed Deployment that needs restarting to pick up changes, since Kubernetes doesn't do that automatically). That's generalised here as `additional-rollout-restart-deployment` — leave it empty for callers that don't have an equivalent pattern. (only cica-web has)
+
+**Design note**: `configmap-name` and `configmap-from-file` regenerate a ConfigMap from a file in the caller's repo before the Deployment is applied, so pods started by that rollout mount the new content. It uses `kubectl replace --force` because `kubectl apply` stores the whole object in an annotation, which a large file would overflow. Set both inputs or neither. Only `cica-apply-maintenance-page` uses this today.
 
 ### Example call
 

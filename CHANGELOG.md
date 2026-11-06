@@ -2,6 +2,12 @@
 
 All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
 
+## [1.0.12] - 2026-11-03
+
+### Added
+- `reusable-security.yml`'s new `snyk-open-source-enabled` input (optional, default `true`). When `false`, the `snyk-open-source` job is skipped. Added for `cica-apply-maintenance-page`, a static nginx page with no `package-lock.json`, where the job's `setup-node` cache and `npm ci` steps can't succeed. Does not change behaviour for any existing caller.
+- `reusable-deploy-kubernetes.yml`'s new `configmap-name` and `configmap-from-file` inputs (optional, default `''`). When set, the "Deploy to the cluster" step regenerates the ConfigMap from that file before applying the Deployment. Added for `cica-apply-maintenance-page`, whose pods mount `index.html` from a ConfigMap; reproduces the `kubectl replace --force` step its CircleCI pipeline used. Does not change behaviour for any existing caller.
+
 ## [1.0.11] - 2026-10-26
 
 ### Added
