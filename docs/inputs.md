@@ -6,7 +6,6 @@ For the exact inputs, secrets, and outputs of a workflow, read its `on.workflow_
 
 The reusable workflows (`reusable-security.yml`, `reusable-container.yml`, `reusable-publish.yml`, `reusable-snyk-policy-reconcile.yml`) call `actions/snyk-auth` (which lives in this same repo) with GitHub's **self-repository syntax**: `uses: $/actions/snyk-auth`.
 
-
 Why not a workspace-relative local path (`./actions/snyk-auth`)? These files are *reusable* workflows, called via `workflow_call` from other repositories (`cica-apply-web`, and its siblings). When a job in one of them runs, whatever `actions/checkout` checks out reflects the **calling** repository, not this one — so a workspace-relative path would resolve against the caller's files, where `actions/snyk-auth` doesn't exist, and the step would fail.
 
 The `$/` self-repository reference solves this without the maintenance cost of a hardcoded version. It resolves to *this* repo at the exact commit the reusable workflow is running from — so when a caller pins `@v1.0.12`, the `snyk-auth` step resolves to `v1.0.12`; when a caller pins a full commit SHA, it resolves to that same SHA. There is nothing to bump before a release.
