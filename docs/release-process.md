@@ -61,6 +61,8 @@ When a newer version replaces a faulty one (for example, `v1.0.10` fixing `v1.0.
 
 Don't delete the superseded release: callers pinned to it still need it to resolve, and the note tells them why to move.
 
+> **Note on the old "bump the `snyk-auth` self-references before tagging" step:** this is no longer needed. The reusable workflows now reference the in-repo `snyk-auth` action with GitHub's self-repository syntax (`uses: $/actions/snyk-auth`), which resolves to this repo at the exact commit a caller is running — tag or full SHA. There is nothing to hand-edit before a release and no `grep` to verify. See the design note in `docs/inputs.md`.
+
 ## Rolling out a new version to callers
 
 Don't push a new version to every caller at once. Move repositories forward deliberately, in staged-wave order (pilot → similar deployable services → repos with different integration patterns → libraries).
