@@ -33,17 +33,17 @@
 #   Local, run the scans for you (needs snyk on PATH and an authenticated
 #   session — SNYK_TOKEN / SNYK_OAUTH_TOKEN, or `snyk auth`):
 #
-#     scripts/snyk-policy-reconcile.sh \
+#     actions/snyk-policy-reconcile/snyk-policy-reconcile.sh \
 #       --project-dir /path/to/cica-apply-web \
 #       --image my-local-image:latest
 #
 #   Reconcile only the npm/OSS surface (no container):
 #
-#     scripts/snyk-policy-reconcile.sh --project-dir /path/to/repo
+#     actions/snyk-policy-reconcile/snyk-policy-reconcile.sh --project-dir /path/to/repo
 #
 #   CI / offline, feed it JSON the pipeline already produced (no snyk needed):
 #
-#     scripts/snyk-policy-reconcile.sh \
+#     actions/snyk-policy-reconcile/snyk-policy-reconcile.sh \
 #       --policy /path/to/.snyk \
 #       --oss-json snyk-open-source.json \
 #       --container-json snyk-container.json

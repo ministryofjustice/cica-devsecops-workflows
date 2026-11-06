@@ -26,7 +26,7 @@ See `CHANGELOG.md`'s "Known issues".
 cica-devsecops-workflows/
 ├── .github/workflows/     # the reusable workflows (workflow_call) plus this repo's own PR CI
 ├── actions/                # composite actions shared across the reusable workflows
-├── scripts/                # standalone tooling (e.g. the .snyk policy reconciler)
+│                           #   (incl. snyk-policy-reconcile, which bundles its script)
 ├── docs/                   # inputs/outputs reference, onboarding guide, release process
 ├── CHANGELOG.md
 └── README.md

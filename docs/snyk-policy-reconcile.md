@@ -6,7 +6,7 @@ removed or the upstream fix shipped; meanwhile a newly disclosed vulnerability
 shows up in the scan with no matching entry. Neither direction is obvious from
 reading the file — you have to cross-check it against a live scan.
 
-`scripts/snyk-policy-reconcile.sh` does that cross-check. It is a **read-only
+`actions/snyk-policy-reconcile/snyk-policy-reconcile.sh` does that cross-check. It is a **read-only
 triage aid**: it tells you which entries to look at and leaves every decision —
 and every line of `.snyk` — to you.
 
@@ -59,7 +59,7 @@ PATH with an authenticated session (`snyk auth`, or `SNYK_TOKEN` /
 Reconcile both surfaces, letting the script run the scans:
 
 ```bash
-scripts/snyk-policy-reconcile.sh \
+actions/snyk-policy-reconcile/snyk-policy-reconcile.sh \
   --project-dir /path/to/cica-apply-web \
   --image cica-apply-web:latest
 ```
@@ -67,14 +67,14 @@ scripts/snyk-policy-reconcile.sh \
 Just the npm/Open Source surface (no container):
 
 ```bash
-scripts/snyk-policy-reconcile.sh --project-dir /path/to/cica-apply-web
+actions/snyk-policy-reconcile/snyk-policy-reconcile.sh --project-dir /path/to/cica-apply-web
 ```
 
 Offline — reconcile against JSON a pipeline already produced (no `snyk`
 needed):
 
 ```bash
-scripts/snyk-policy-reconcile.sh \
+actions/snyk-policy-reconcile/snyk-policy-reconcile.sh \
   --policy /path/to/.snyk \
   --oss-json snyk-open-source.json \
   --container-json snyk-container.json
@@ -83,10 +83,10 @@ scripts/snyk-policy-reconcile.sh \
 Machine-readable output (for piping into other tools):
 
 ```bash
-scripts/snyk-policy-reconcile.sh --project-dir . --json
+actions/snyk-policy-reconcile/snyk-policy-reconcile.sh --project-dir . --json
 ```
 
-Run `scripts/snyk-policy-reconcile.sh --help` for the full option list.
+Run `actions/snyk-policy-reconcile/snyk-policy-reconcile.sh --help` for the full option list.
 
 ### Reading the output
 

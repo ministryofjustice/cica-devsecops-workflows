@@ -53,17 +53,6 @@ on:
         type: string
         required: false
         default: ''
-      reconcile-ref:
-        description: >
-          Git ref/tag/SHA of cica-devsecops-workflows to fetch the reconcile
-          script from. Leave empty (the default) to use the exact commit this
-          reusable workflow is running from (github.job.workflow_sha), so the
-          script version always matches the workflow version the caller pinned,
-          with nothing to hand-bump per release. Set it only to pin the script
-          to a different ref — e.g. a branch, when testing an unreleased change.
-        type: string
-        required: false
-        default: ''
       expiry-window-days:
         description: Warn on .snyk ignores expiring within this many days
         type: number
@@ -100,47 +89,6 @@ jobs:
       - name: Install Snyk
         run: npm install -g snyk@${{ inputs.snyk-version }}
 
-      - name: Resolve reconcile-ref
-        id: resolve-ref
-        # The script lives in this repo, not the caller's, so it can't come from
-        # the default checkout, and `$/` (a uses: resolver) can't be used as a
-        # checkout `ref:`. Default to github.job.workflow_sha — the commit SHA of
-        # the workflow file that defines THIS job, i.e. this reusable workflow in
-        # cica-devsecops-workflows at the exact commit it's running from. That is
-        # the self-consistency `$/` gives the snyk-auth step, achieved manually
-        # for the one spot that needs an explicit ref.
-        #
-        # NB: do NOT use github.workflow_ref/github.workflow_sha here — for a
-        # reusable workflow those report the TOP-LEVEL CALLER's file and ref
-        # (e.g. cica-apply-web@refs/pull/<n>/merge), which is meaningless against
-        # this repo. The job context is the one scoped to the called workflow.
-        #
-        # An explicit reconcile-ref input still overrides this (e.g. to pin the
-        # script to a different ref, or to test against a branch).
-        env:
-          JOB_WORKFLOW_SHA: ${{ github.job.workflow_sha }}
-          OVERRIDE_REF: ${{ inputs.reconcile-ref }}
-        run: |
-          set -euo pipefail
-          REF="${OVERRIDE_REF:-$JOB_WORKFLOW_SHA}"
-          if [ -z "$REF" ]; then
-            echo "::error::Could not determine a ref to fetch the reconcile script from (github.job.workflow_sha was empty and no reconcile-ref input was set)"
-            exit 1
-          fi
-          echo "ref=$REF" >> "$GITHUB_OUTPUT"
-          echo "Fetching reconcile script from cica-devsecops-workflows@$REF"
-
-      - name: Fetch reconcile script
-        # Pull just the script from this repo at the resolved ref, so callers
-        # don't vendor a copy. Full checkout into a sibling path to keep paths
-        # simple.
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          repository: ministryofjustice/cica-devsecops-workflows
-          ref: ${{ steps.resolve-ref.outputs.ref }}
-          path: .devsecops-workflows
-          sparse-checkout: scripts
-
       - name: Get Snyk OAuth token
         id: snyk-auth
         uses: $/actions/snyk-auth
@@ -164,22 +112,17 @@ jobs:
 
       - name: Reconcile .snyk against scan results
         id: reconcile
-        run: |
-          set -euo pipefail
-          SCRIPT="${{ github.workspace }}/.devsecops-workflows/scripts/snyk-policy-reconcile.sh"
-          chmod +x "$SCRIPT"
-
-          ARGS=(--policy "${{ inputs.policy-path }}"
-                --oss-json "${{ github.workspace }}/snyk-oss.json"
-                --expiry-window "${{ inputs.expiry-window-days }}")
-          if [ -f "${{ github.workspace }}/snyk-container.json" ]; then
-            ARGS+=(--container-json "${{ github.workspace }}/snyk-container.json")
-          fi
-
-          # Human-readable report to the job log...
-          "$SCRIPT" "${ARGS[@]}" | tee "${{ github.workspace }}/reconcile.txt"
-          # ...and a machine-readable copy for the PR comment step.
-          "$SCRIPT" "${ARGS[@]}" --json > "${{ github.workspace }}/reconcile.json"
+        # The reconcile script is bundled inside this composite action and
+        # referenced via `$/`, so it resolves to this repo at the exact commit
+        # the workflow is running from — same mechanism as the snyk-auth step
+        # above. No second checkout, no ref to resolve.
+        uses: $/actions/snyk-policy-reconcile
+        with:
+          policy-path: ${{ inputs.policy-path }}
+          oss-json: ${{ github.workspace }}/snyk-oss.json
+          container-json: ${{ github.workspace }}/snyk-container.json
+          expiry-window-days: ${{ inputs.expiry-window-days }}
+          report-dir: ${{ github.workspace }}
 
       - name: Comment reconciliation summary on PR
         if: github.event_name == 'pull_request'

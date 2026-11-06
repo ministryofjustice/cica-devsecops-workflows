@@ -172,9 +172,32 @@ risk is low.
   consolidating per-tag notes into GitHub Releases becomes viable. If adopted,
   leave a pointer at the top of `CHANGELOG.md` noting the cutover version, and
   update `release-process.md`'s "update the CHANGELOG" step accordingly.
-- **`reusable-snyk-policy-reconcile.yml`'s `reconcile-ref` default.** It fetches
-  the reconcile script from this repo at a hardcoded `ref:` (currently
-  `v1.0.0`, where the script does not yet exist). A `ref:` in a checkout cannot
-  use `$/`, so this needs either deriving from `github.workflow_ref` or moving
-  the script into a composite action called via `$/`. Tracked separately from
-  this note.
+## Resolved: the reconcile script's version-matching
+
+`reusable-snyk-policy-reconcile.yml` needs its reconcile script from *this* repo,
+not the caller's checkout. Earlier attempts fetched it via a second
+`actions/checkout` whose `ref:` had to be resolved somehow — and this turned out
+to be a trap:
+
+- A hardcoded default (`v1.0.0`) pointed at a tag where the script didn't exist.
+- `github.workflow_ref` / `github.workflow_sha` resolve to the **top-level
+  caller's** file and ref — on a PR run that's `cica-apply-web@refs/pull/<n>/merge`,
+  which is meaningless against this repo (produced
+  `fatal: couldn't find remote ref refs/pull/<n>/merge`).
+- `github.job.workflow_sha` evaluated to `null` on the runner in use (the newer
+  `job` context properties weren't populated).
+
+**Resolution: the script was moved into a composite action
+(`actions/snyk-policy-reconcile/`) and the workflow calls it via
+`uses: $/actions/snyk-policy-reconcile`** — the same mechanism as the `snyk-auth`
+step. `$/` resolves the action (and its bundled script) to this repo at the exact
+commit the workflow is running from, so the script version tracks the workflow
+version automatically. No second checkout, no `ref:` to resolve, no
+`reconcile-ref` input. The script is referenced inside the action via
+`github.action_path` (kept in the action's own directory, not a sibling path, so
+no `..` traversal). It is still runnable standalone from
+`actions/snyk-policy-reconcile/snyk-policy-reconcile.sh`.
+
+Lesson for the next person: to make a reusable workflow use a file that ships
+with it, bundle that file in a `$/`-referenced composite action rather than
+trying to re-checkout this repo at a derived ref.
