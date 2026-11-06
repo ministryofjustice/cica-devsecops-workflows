@@ -114,7 +114,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$CONFIGMAP_NAME" ]; then
-            kubectl create configmap "$CONFIGMAP_NAME" --from-file="$CONFIGMAP_FROM_FILE" -n "$NAMESPACE" -o yaml --dry-run=client \n              | kubectl replace --force -n "$NAMESPACE" -f -
+            kubectl create configmap "$CONFIGMAP_NAME" --from-file="$CONFIGMAP_FROM_FILE" -n "$NAMESPACE" -o yaml --dry-run=client \
+              | kubectl replace --force -n "$NAMESPACE" -f -
           fi
 
           SET_IMAGE_ARGS="$CONTAINER_NAME=$IMAGE_URI"
