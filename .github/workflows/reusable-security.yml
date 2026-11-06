@@ -97,7 +97,13 @@ jobs:
               if [ -z "$ACTION_REF" ]; then
                 continue
               fi
-              # References to cica-devsecops-workflows itself are governed by
+              # Self-repository references ($/...) resolve to this repo at the exact commit
+              # currently running, so they are inherently pinned to whatever ref the caller
+              # pinned (tag or full SHA) — nothing to check here.
+              if [[ "$ACTION_REF" == '$/'* ]]; then
+                continue
+              fi
+              # External references to cica-devsecops-workflows itself are governed by
               # docs/release-process.md's tag policy (a version tag like @v1.2.0 is the
               # recommended default there), not the third-party SHA-pinning policy checked below.
               if [[ "$ACTION_REF" == ministryofjustice/cica-devsecops-workflows/* ]]; then
@@ -150,7 +156,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
+        uses: $/actions/snyk-auth
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -186,7 +192,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
+        uses: $/actions/snyk-auth
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -213,7 +219,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
+        uses: $/actions/snyk-auth
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
@@ -246,7 +252,7 @@ jobs:
         run: npm install -g snyk@${{ inputs.snyk-version }}
       - name: Get Snyk OAuth token
         id: snyk-auth
-        uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
+        uses: $/actions/snyk-auth
         with:
           client-id: ${{ secrets.SNYK_CLIENT_ID }}
           client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}

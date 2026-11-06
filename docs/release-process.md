@@ -18,14 +18,11 @@ Every repository that calls a workflow from here is trusting this repo not to br
 1. Open a PR against this repo.
 2. If the change affects behaviour a caller depends on (not just internal refactoring), test it end-to-end against a real caller on a throwaway branch pointed at your PR's branch/SHA before merging.
 3. Merge to `main` once reviewed.
-4. **Before tagging, bump the internal `snyk-auth` self-references to the version you're about to release.** `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` each call `actions/snyk-auth` via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`) rather than a local path — see the design note in `docs/inputs.md` for why a local path doesn't work here. Tagging the repo does **not** update these lines automatically; they're just text until someone edits them. Do this every release, regardless of whether `snyk-auth` itself changed. Verify nothing was missed:
-   ```
-   grep -rn "snyk-auth@v" .github/workflows/
-   ```
-   All matches should show the version you're about to tag.
-5. Once `main` is in a state you're confident releasing, tag it: `git tag v1.x.y && git push origin v1.x.y`.
-6. Update `CHANGELOG.md` with what changed in that version.
-7. Existing callers are **not** automatically affected — they stay on whatever tag they already reference until someone deliberately bumps it in their own caller workflow file.
+4. Once `main` is in a state you're confident releasing, tag it: `git tag v1.x.y && git push origin v1.x.y`.
+5. Update `CHANGELOG.md` with what changed in that version.
+6. Existing callers are **not** automatically affected — they stay on whatever tag they already reference until someone deliberately bumps it in their own caller workflow file.
+
+> **Note on the old "bump the `snyk-auth` self-references before tagging" step:** this is no longer needed. The reusable workflows now reference the in-repo `snyk-auth` action with GitHub's self-repository syntax (`uses: $/actions/snyk-auth`), which resolves to this repo at the exact commit a caller is running — tag or full SHA. There is nothing to hand-edit before a release and no `grep` to verify. See the design note in `docs/inputs.md`.
 
 ## Rolling out a new version to callers
 
