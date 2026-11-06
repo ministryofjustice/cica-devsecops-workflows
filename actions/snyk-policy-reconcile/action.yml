@@ -1,0 +1,93 @@
+name: Snyk policy reconcile
+description: >
+  Run the .snyk policy reconciliation (STALE/ACTIVE/NEW buckets) against
+  pre-generated Snyk scan JSON, writing a human-readable report and a
+  machine-readable JSON copy. Read-only: never edits .snyk.
+
+inputs:
+  policy-path:
+    description: Path to the .snyk policy file (relative to the working directory)
+    required: false
+    default: '.snyk'
+  oss-json:
+    description: Path to the Snyk Open Source `snyk test --json` output
+    required: true
+  container-json:
+    description: >
+      Optional path to the Snyk container `snyk container test --json` output.
+      Leave empty to reconcile the Open Source surface only.
+    required: false
+    default: ''
+  expiry-window-days:
+    description: Warn on .snyk ignores expiring within this many days
+    required: false
+    default: '14'
+  report-dir:
+    description: Directory to write reconcile.txt and reconcile.json into
+    required: false
+    default: ${{ github.workspace }}
+
+outputs:
+  report-txt:
+    description: Path to the human-readable reconciliation report
+    value: ${{ steps.run.outputs.report-txt }}
+  report-json:
+    description: Path to the machine-readable reconciliation report
+    value: ${{ steps.run.outputs.report-json }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        # github.action_path points at this action's own directory, checked out
+        # by GitHub at the exact commit this action is resolved from. Because the
+        # calling reusable workflow references this action via `$/`, that commit
+        # matches the workflow's commit automatically — so the script version is
+        # always in lock-step with the workflow, with nothing to fetch over the
+        # network and no ref to resolve.
+        ACTION_PATH: ${{ github.action_path }}
+        POLICY_PATH: ${{ inputs.policy-path }}
+        OSS_JSON: ${{ inputs.oss-json }}
+        CONTAINER_JSON: ${{ inputs.container-json }}
+        EXPIRY_WINDOW: ${{ inputs.expiry-window-days }}
+        REPORT_DIR: ${{ inputs.report-dir }}
+      run: |
+        set -euo pipefail
+        SCRIPT="$ACTION_PATH/snyk-policy-reconcile.sh"
+        chmod +x "$SCRIPT"
+
+        ARGS=(--policy "$POLICY_PATH"
+              --oss-json "$OSS_JSON"
+              --expiry-window "$EXPIRY_WINDOW")
+        if [ -n "$CONTAINER_JSON" ] && [ -f "$CONTAINER_JSON" ]; then
+          ARGS+=(--container-json "$CONTAINER_JSON")
+        fi
+
+        REPORT_TXT="$REPORT_DIR/reconcile.txt"
+        REPORT_JSON="$REPORT_DIR/reconcile.json"
+
+        # Human-readable report to the job log and to a file...
+        "$SCRIPT" "${ARGS[@]}" | tee "$REPORT_TXT"
+        # ...and a machine-readable copy for the PR comment step.
+        "$SCRIPT" "${ARGS[@]}" --json > "$REPORT_JSON"
+
+        echo "report-txt=$REPORT_TXT" >> "$GITHUB_OUTPUT"
+        echo "report-json=$REPORT_JSON" >> "$GITHUB_OUTPUT"
+
+        # Surface the report on the run's Summary tab, so it's visible without
+        # opening the raw logs. This runs on every trigger (PR, deploy push,
+        # future schedule), independent of the PR-comment step — on non-PR runs
+        # where no comment is posted, this is the primary surfacing.
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          {
+            echo "## Snyk policy reconciliation"
+            echo
+            echo "Triage only — this never edits \`.snyk\`. See the report below."
+            echo
+            echo '```'
+            cat "$REPORT_TXT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
