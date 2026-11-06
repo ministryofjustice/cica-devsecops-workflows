@@ -16,6 +16,7 @@ This repo exists to move common CI/CD and DevSecOps logic (build, test, security
 | `.github/workflows/reusable-container.yml` | ✅ Implemented — Docker build, Snyk container scan, smoke test, and SBOM generation |
 | `.github/workflows/reusable-publish.yml` | ✅ Implemented — AWS OIDC, ECR push, digest capture, build provenance, and (caller-controlled) Snyk container monitoring |
 | `.github/workflows/reusable-deploy-kubernetes.yml` | ✅ Implemented — environment-agnostic Kubernetes deploy |
+| `.github/workflows/reusable-snyk-policy-reconcile.yml` | ✅ Implemented — non-blocking `.snyk` policy drift triage (read-only; posts a PR comment) |
 
 See `CHANGELOG.md`'s "Known issues".
 
@@ -25,6 +26,7 @@ See `CHANGELOG.md`'s "Known issues".
 cica-devsecops-workflows/
 ├── .github/workflows/     # the reusable workflows (workflow_call) plus this repo's own PR CI
 ├── actions/                # composite actions shared across the reusable workflows
+├── scripts/                # standalone tooling (e.g. the .snyk policy reconciler)
 ├── docs/                   # inputs/outputs reference, onboarding guide, release process
 ├── CHANGELOG.md
 └── README.md
