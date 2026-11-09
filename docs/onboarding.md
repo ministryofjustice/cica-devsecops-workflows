@@ -1,6 +1,6 @@
 # Onboarding a repository to these reusable workflows
 
-**Current state**: all five reusable workflows (`reusable-node-ci.yml`, `reusable-security.yml`, `reusable-container.yml`, `reusable-publish.yml`, `reusable-deploy-kubernetes.yml`) and the `snyk-auth` composite action exist and are tagged at `v1.0.0`. A repository can onboard a full pipeline from this repo now, not just CI checks.
+**Current state**: all five reusable workflows (`reusable-node-ci.yml`, `reusable-security.yml`, `reusable-container.yml`, `reusable-publish.yml`, `reusable-deploy-kubernetes.yml`) and the `snyk-auth` composite action exist and have been released since `v1.0.0`. A repository can onboard a full pipeline from this repo now, not just CI checks.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Before a repository can call a workflow from here:
 ## Steps
 
 1. **Decide on a caller workflow file** in the target repo, e.g. `.github/workflows/ci.yml` (or extend an existing one).
-2. **Reference each reusable workflow you need, pinned to a specific tag** (never `@main`). Minimal CI-only example:
+2. **Reference each reusable workflow you need, pinned to a specific release version** (never `@main`). Minimal CI-only example:
 
    ```yaml
    name: CI

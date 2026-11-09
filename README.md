@@ -6,7 +6,7 @@ This repo exists to move common CI/CD and DevSecOps logic (build, test, security
 
 ## Status
 
-**First tagged release: `v1.0.0`.** All five core reusable workflows and the shared `snyk-auth` composite action are implemented and safe to reference from a real caller, pinned to `@v1.0.0`.
+**First release: `v1.0.0`.** Versions are published as [GitHub Releases](https://github.com/ministryofjustice/cica-devsecops-workflows/releases), and their release notes are the changelog. All five core reusable workflows and the shared `snyk-auth` composite action are implemented and safe to reference from a real caller, pinned to `@v1.0.0`.
 
 | Piece | Status |
 |---|---|
@@ -17,7 +17,7 @@ This repo exists to move common CI/CD and DevSecOps logic (build, test, security
 | `.github/workflows/reusable-publish.yml` | ✅ Implemented — AWS OIDC, ECR push, digest capture, build provenance, and (caller-controlled) Snyk container monitoring |
 | `.github/workflows/reusable-deploy-kubernetes.yml` | ✅ Implemented — environment-agnostic Kubernetes deploy |
 
-See `CHANGELOG.md`'s "Known issues".
+See each release's "Known issues" in its release notes (or `CHANGELOG.md` for `v1.0.12` and earlier).
 
 ## Repository layout
 
@@ -26,7 +26,7 @@ cica-devsecops-workflows/
 ├── .github/workflows/     # the reusable workflows (workflow_call) plus this repo's own PR CI
 ├── actions/                # composite actions shared across the reusable workflows
 ├── docs/                   # inputs/outputs reference, onboarding guide, release process
-├── CHANGELOG.md
+├── CHANGELOG.md            # history up to v1.0.12; later versions are in GitHub Releases
 └── README.md
 ```
 
@@ -46,6 +46,6 @@ jobs:
       lint-command: 'npm run lint'
 ```
 
-Always pin to a specific released tag (`@v1.2.0`) or commit SHA, never `@main`, for any real caller — see `docs/release-process.md`.
+Always pin to a specific release version (`@v1.2.0`) or commit SHA, never `@main`, for any real caller — see `docs/release-process.md`.
 
 See `docs/onboarding.md` for a full walkthrough and `docs/inputs.md` for a worked example call per workflow. For the exact inputs/secrets/outputs of a given workflow, read its `on.workflow_call` block in the file itself.
