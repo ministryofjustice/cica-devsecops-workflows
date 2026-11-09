@@ -6,7 +6,7 @@ For the exact inputs, secrets, and outputs of a workflow, read its `on.workflow_
 
 `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` call `actions/snyk-auth` (which lives in this same repo) via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`), not a local path like `./actions/snyk-auth`. This looks redundant but isn't: these three files are *reusable* workflows, meant to be called via `workflow_call` from other repositories (`cica-apply-web`, and eventually its siblings). When a job in one of them runs, its `github.*` context (and whatever `actions/checkout` checks out by default) reflects the **calling** repository, not this one — so a local path would resolve against the caller's files, where `actions/snyk-auth` doesn't exist, and the step would fail. The external reference tells GitHub Actions to fetch the action from this repo specifically, regardless of what the caller checked out.
 
-One consequence: **tagging a new release does not automatically update these three references.** See the release checklist in `docs/release-process.md`.
+One consequence: **publishing a new release does not automatically update these three references.** See the release checklist in `docs/release-process.md`.
 
 ---
 
@@ -37,7 +37,7 @@ Composite action. Exchanges a Snyk service account's OAuth client ID/secret for 
 ```yaml
 - name: Get Snyk OAuth token
   id: snyk-auth
-  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
+  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.12
   with:
     client-id: ${{ secrets.SNYK_CLIENT_ID }}
     client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}

@@ -2,7 +2,12 @@
 
 All notable changes to this repository are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) — dated entries, grouped by Added/Changed/Fixed.
 
+**This file is no longer updated.** It covers versions up to and including `v1.0.12`. From the next version onwards, changes are recorded in the release notes on [GitHub Releases](https://github.com/ministryofjustice/cica-devsecops-workflows/releases).
+
 ## [1.0.12] - 2026-11-03
+
+### Changed
+- Versions are now published as GitHub Releases instead of hand-made git tags, and the release notes replace this file as the changelog, which avoids the merge conflicts every PR used to cause here. `docs/release-process.md` describes the new steps, including how to mark a release as superseded. Callers are unaffected: `@vX.Y.Z` references resolve the same way.
 
 ### Added
 - `reusable-security.yml`'s new `snyk-open-source-enabled` input (optional, default `true`). When `false`, the `snyk-open-source` job is skipped. Added for `cica-apply-maintenance-page`, a static nginx page with no `package-lock.json`, where the job's `setup-node` cache and `npm ci` steps can't succeed. Does not change behaviour for any existing caller.
