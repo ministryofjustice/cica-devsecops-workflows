@@ -52,9 +52,49 @@ Container, IaC) are in scope.
 
 ## Running it locally
 
-Requires `jq`, and — unless you pass pre-generated JSON — the `snyk` CLI on your
-PATH with an authenticated session (`snyk auth`, or `SNYK_TOKEN` /
+Requires `jq` and `yq` (Mike Farah's Go `yq` — the Python `yq` wrapper has a
+different expression syntax and will not work). Both are used to parse the scan
+JSON and the `.snyk` YAML, so they are needed on every run, not just locally.
+Unless you pass pre-generated JSON, you also need the `snyk` CLI on your PATH
+with an authenticated session (`snyk auth`, or `SNYK_TOKEN` /
 `SNYK_OAUTH_TOKEN` in the environment).
+
+### Installing `yq` (read this before `apt install yq`)
+
+There are two unrelated tools both called `yq`, and on Debian/Ubuntu/WSL the
+obvious command installs the **wrong** one:
+
+- **`sudo apt install yq`** installs the Python wrapper (v3.x). Its expression
+  syntax is different and the script's filters will not work — the script
+  detects this and refuses to run (`the 'yq' on PATH is not Mike Farah's Go
+  yq`). **Do not use it.**
+- **`sudo snap install yq`** installs Mike Farah's Go `yq` (v4). This works, but
+  the version floats ahead of the pinned version CI uses.
+
+The version CI pins is the `yq-version` input default in
+`.github/workflows/reusable-snyk-policy-reconcile.yml` — that input is the
+single source of truth, so install whatever it currently says rather than a
+number copied here. To match CI byte-for-byte (recommended if you plan to run
+the tests locally):
+
+```bash
+# Linux / WSL (x86_64). Use yq_linux_arm64 if `dpkg --print-architecture` is arm64.
+# Read the pinned version straight from the workflow input default, so there is
+# no copy of the number to drift. Run from the repo root.
+YQ_VERSION=$(sed -n "/yq-version:/,/default:/s/.*default: *'\\([^']*\\)'.*/\\1/p" \
+  .github/workflows/reusable-snyk-policy-reconcile.yml)
+echo "Installing yq ${YQ_VERSION}"
+sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+  -o /usr/local/bin/yq
+sudo chmod +x /usr/local/bin/yq
+yq --version   # expect: ... version ${YQ_VERSION} (and the word "mikefarah")
+```
+
+On macOS, `brew install yq` installs Mike Farah's `yq` correctly. GitHub-hosted
+`ubuntu-latest` runners already have both `jq` and `yq` preinstalled; the
+reconcile workflow additionally installs the pinned `yq-version` over the top so
+CI is reproducible regardless of the image's `yq`. Self-hosted or slim container
+runners may need `jq`/`yq` added.
 
 Reconcile both surfaces, letting the script run the scans:
 
@@ -145,3 +185,27 @@ later decides drift should block, but the CI workflow deliberately does not set
 it: self-healing via `expires` plus a visible PR comment is the lighter-touch
 default, and keeping the job green avoids pressuring anyone into deleting an
 ignore without proper verification.
+
+## Tests
+
+Black-box tests for the script live in
+`actions/snyk-policy-reconcile/test/`. They drive the real script with
+pre-generated scan JSON and a fixture `.snyk`, then assert on its `--json`
+report — covering the `.snyk` parsing, the STALE/ACTIVE/NEW set algebra, the
+expiry-window warning, and both scan surfaces feeding one reconciliation.
+
+Run them locally (needs `bash`, `jq`, and Mike Farah's Go `yq` — the same tools
+the script needs):
+
+```bash
+actions/snyk-policy-reconcile/test/reconcile.test.sh
+```
+
+They also run in CI as the `reconcile-script-tests` job in `ci.yml`. If `yq` is
+not installed the suite SKIPs with exit 0 rather than failing, so a box that
+cannot run the script does not produce a false negative; CI installs a pinned
+`yq` so it runs for real there.
+
+The expiring-ignore fixture uses a relative date injected at run time
+(`@@EXPIRING_DATE@@` in `test/fixtures/.snyk`), so the test is not time-bombed
+to a fixed calendar date.

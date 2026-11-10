@@ -1,0 +1,13 @@
+{
+  "_comment": "Synthetic `snyk test --json` (Open Source) fixture. Models the output shape of Snyk CLI v1.1306.3 (the snyk-version pinned in reusable-snyk-policy-reconcile.yml). These tests are black-box against frozen fixtures, so they CANNOT detect a Snyk JSON schema change on their own. When bumping snyk-version, re-check that `vulnerabilities[].id` and `filtered.ignore[].id` still match real output and update these fixtures if the shape changed. The reconcile script ignores unknown top-level keys, so this field is inert.",
+  "vulnerabilities": [
+    { "id": "SNYK-JS-EXPIRING-555", "severity": "high", "title": "Expiring soon vuln" },
+    { "id": "SNYK-JS-QUOTEDKEY-777", "severity": "high", "title": "Quoted-key vuln" },
+    { "id": "SNYK-JS-NEWVULN-999", "severity": "high", "title": "Brand new, not in .snyk" }
+  ],
+  "filtered": {
+    "ignore": [
+      { "id": "SNYK-JS-LODASH-1018905", "severity": "high", "title": "Ignored lodash issue" }
+    ]
+  }
+}

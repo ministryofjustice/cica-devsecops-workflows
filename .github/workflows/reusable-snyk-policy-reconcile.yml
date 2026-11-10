@@ -23,6 +23,14 @@ on:
         type: string
         required: false
         default: '1.1306.3'
+      yq-version:
+        description: >
+          Pinned Mike Farah's Go yq version to install (used to parse .snyk).
+          Pinned and always installed so the reconcile result does not drift
+          with whatever yq the runner image happens to ship.
+        type: string
+        required: false
+        default: 'v4.44.3'
       snyk-api-url:
         description: Snyk API base URL
         type: string
@@ -96,6 +104,17 @@ jobs:
     steps:
       - name: Checkout caller repo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Ensure jq and yq are available
+        # Installs jq and the pinned Mike Farah's Go yq the reconcile script
+        # needs. Factored into a composite action (referenced via $/, so it
+        # resolves to this repo at the running commit) so the pinned yq version
+        # lives in exactly one place — actions/ensure-yq — and is shared with
+        # ci.yml's test job. The caller can still override via the yq-version
+        # input, which is forwarded here.
+        uses: $/actions/ensure-yq
+        with:
+          yq-version: ${{ inputs.yq-version }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

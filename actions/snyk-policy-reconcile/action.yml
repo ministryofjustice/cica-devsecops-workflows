@@ -3,6 +3,8 @@ description: >
   Run the .snyk policy reconciliation (STALE/ACTIVE/NEW buckets) against
   pre-generated Snyk scan JSON, writing a human-readable report and a
   machine-readable JSON copy. Read-only: never edits .snyk.
+  Requires jq and Mike Farah's Go yq on PATH (both preinstalled on
+  GitHub-hosted ubuntu-latest runners).
 
 inputs:
   policy-path:

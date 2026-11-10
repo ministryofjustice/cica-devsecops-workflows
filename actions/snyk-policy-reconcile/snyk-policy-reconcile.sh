@@ -28,6 +28,15 @@
 # reusable-security.yml and reusable-container.yml workflows use it.
 #
 # ---------------------------------------------------------------------------
+# REQUIREMENTS
+#
+#   jq  — parses the scan JSON.
+#   yq  — parses the .snyk YAML. Must be Mike Farah's Go yq
+#         (https://github.com/mikefarah/yq); the Python 'yq' wrapper uses a
+#         different expression syntax and will not work.
+#   Both are needed on every run. GitHub-hosted ubuntu-latest runners ship both.
+#
+# ---------------------------------------------------------------------------
 # USAGE
 #
 #   Local, run the scans for you (needs snyk on PATH and an authenticated
@@ -72,7 +81,7 @@
 # EXIT CODES
 #   0  success (report produced; no --fail-on-stale trigger)
 #   1  stale entries found AND --fail-on-stale set
-#   2  usage / environment error (bad args, missing jq, scan failed)
+#   2  usage / environment error (bad args, missing jq/yq, scan failed)
 #
 # Note: a non-reporting scan exit is expected. `snyk test` exits non-zero when
 # it finds issues; this script captures that without treating it as failure.
@@ -81,8 +90,6 @@
 set -euo pipefail
 
 die() { echo "error: $*" >&2; exit 2; }
-
-command -v jq >/dev/null 2>&1 || die "jq is required but not found on PATH"
 
 POLICY=""
 PROJECT_DIR="."
@@ -107,10 +114,18 @@ while [ $# -gt 0 ]; do
     --expiry-window)  EXPIRY_WINDOW="${2:?}"; shift 2 ;;
     --json)           OUTPUT="json"; shift ;;
     --fail-on-stale)  FAIL_ON_STALE=1; shift ;;
-    -h|--help)        sed -n '2,70p' "$0"; exit 0 ;;
+    -h|--help)        sed -n '2,88p' "$0"; exit 0 ;;
     *)                die "unknown argument: $1" ;;
   esac
 done
+
+# Dependency checks run after arg parsing so --help works without jq/yq present.
+command -v jq >/dev/null 2>&1 || die "jq is required but not found on PATH"
+command -v yq >/dev/null 2>&1 || die "yq is required but not found on PATH (Mike Farah's Go yq: https://github.com/mikefarah/yq)"
+# This script uses Mike Farah's Go yq. The unrelated Python 'yq' wrapper has a
+# different expression syntax and will not work with the filters below.
+yq --version 2>&1 | grep -qi 'mikefarah' \
+  || die "the 'yq' on PATH is not Mike Farah's Go yq; install from https://github.com/mikefarah/yq"
 
 [ -n "$POLICY" ] || POLICY="${PROJECT_DIR%/}/.snyk"
 [ -f "$POLICY" ] || die "policy file not found: $POLICY"
@@ -231,33 +246,30 @@ collect_ids() {
 
 # --- 3. Extract the ID set declared in .snyk ---------------------------------
 #
-# .snyk is YAML. We avoid a YAML dependency by reading the top-level keys under
-# `ignore:` — they are the vuln IDs. Snyk IDs match [A-Z0-9-]+ and are indented
-# two spaces under `ignore:`. `exclude:` (Snyk Code) is a different mechanism
-# and intentionally NOT reconciled here.
+# .snyk is YAML. We parse it with yq (a real YAML parser) rather than by hand,
+# so indentation, quoting, and nesting variations are handled correctly. The
+# top-level keys under `ignore:` are the vuln IDs. `exclude:` (Snyk Code) is a
+# different mechanism and intentionally NOT reconciled here.
 
-awk '
-  /^ignore:[[:space:]]*$/ { in_ignore=1; next }
-  /^[A-Za-z_]+:[[:space:]]*$/ { in_ignore=0 }          # next top-level key
-  in_ignore && /^  [A-Z0-9][A-Z0-9-]*:[[:space:]]*$/ {
-    line=$0
-    sub(/^  /, "", line)
-    sub(/:.*$/, "", line)
-    print line
-  }
-' "$POLICY" | sort -u > "$WORKDIR/policy.txt"
+# IDs: the keys of the `ignore` map. `// {}` guards a missing/empty ignore block.
+yq -r '(.ignore // {}) | keys | .[]' "$POLICY" | sort -u > "$WORKDIR/policy.txt"
 
-# Expiry dates per ID, for the expiry-window warning.
-awk '
-  /^ignore:[[:space:]]*$/ { in_ignore=1; next }
-  /^[A-Za-z_]+:[[:space:]]*$/ { in_ignore=0 }
-  in_ignore && /^  [A-Z0-9][A-Z0-9-]*:[[:space:]]*$/ {
-    id=$0; sub(/^  /, "", id); sub(/:.*$/, "", id); current=id
-  }
-  in_ignore && /expires:/ {
-    e=$0; sub(/^.*expires:[[:space:]]*/, "", e); gsub(/['"'"'"]/, "", e)
-    if (current != "") print current "\t" e
-  }
+# Expiry dates per ID, for the expiry-window warning. An ignore entry is a list
+# of single-key condition maps, e.g. [ { "*": { reason, expires } } ], so the
+# `expires` field lives under .value[] | .[] (the inner map's values), not
+# directly under .value[]. We collect every expires found for the ID and take
+# the first; entries with none are skipped via the length guard.
+#
+# Fields are joined with "|" (not a tab): yq's string concatenation emits "\t"
+# as a literal backslash-t, not a tab character, so a pipe is used instead. A
+# pipe cannot occur in a Snyk issue ID ([A-Z0-9-]+) or an ISO-8601 timestamp,
+# so it is an unambiguous separator. Output is "<id>|<expires>" per line.
+yq -r '
+  (.ignore // {}) | to_entries | .[]
+  | .key as $id
+  | [.value[] | .[] | select(has("expires")) | .expires] as $exps
+  | select(($exps | length) > 0)
+  | $id + "|" + ($exps[0] | tostring)
 ' "$POLICY" > "$WORKDIR/expiry.tsv" || true
 
 # --- 4. Compute the three buckets --------------------------------------------
@@ -279,7 +291,7 @@ EXPIRING="$WORKDIR/expiring.txt"
 if [ -s "$WORKDIR/expiry.tsv" ]; then
   now_s=$(date -u +%s)
   window_s=$(( EXPIRY_WINDOW * 86400 ))
-  while IFS=$'\t' read -r id exp; do
+  while IFS='|' read -r id exp; do
     [ -n "$exp" ] || continue
     # Accept ISO-8601 like 2026-12-03T00:00:00.000Z
     exp_s=$(date -u -d "$exp" +%s 2>/dev/null || true)
