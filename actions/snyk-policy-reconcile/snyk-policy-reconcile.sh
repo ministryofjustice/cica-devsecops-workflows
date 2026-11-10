@@ -115,6 +115,11 @@ done
 [ -n "$POLICY" ] || POLICY="${PROJECT_DIR%/}/.snyk"
 [ -f "$POLICY" ] || die "policy file not found: $POLICY"
 
+# Resolve the policy to an absolute path. The OSS scan runs with `cd
+# "$PROJECT_DIR"` and Snyk interprets --policy-path relative to that working
+# directory, so a relative --policy would otherwise point at the wrong file.
+POLICY="$(cd "$(dirname "$POLICY")" && pwd)/$(basename "$POLICY")"
+
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -139,8 +144,11 @@ run_oss_scan() {
   local out="$WORKDIR/oss.json" log="$WORKDIR/oss.err"
   echo "==> snyk test (Open Source) in $PROJECT_DIR" >&2
   # `snyk test` exits non-zero when vulns are found; that is not a failure here.
+  # Pass the selected policy explicitly so the scan honours the same .snyk we
+  # reconcile against, rather than auto-discovering one in $PROJECT_DIR.
   ( cd "$PROJECT_DIR" && snyk test \
       --severity-threshold="$SEVERITY" \
+      --policy-path="$POLICY" \
       --json-file-output="$out" >/dev/null 2>"$log" ) || true
   [ -s "$out" ] || fail_scan "snyk test produced no JSON (auth? network? wrong dir?)" "$log"
   echo "$out"
