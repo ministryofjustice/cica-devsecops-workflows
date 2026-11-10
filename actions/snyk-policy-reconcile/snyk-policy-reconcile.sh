@@ -206,8 +206,9 @@ EXTRACT='
 collect_ids() {
   # $1 = json file, $2 = mode (reported|suppressed)
   local file="$1" mode="$2"
-  [ -n "$file" ] && [ -s "$file" ] || return 0
-  jq -r --arg mode "$mode" "$EXTRACT" "$file" 2>/dev/null || true
+  [ -n "$file" ] || return 0
+  [ -s "$file" ] || die "scan JSON not found or empty: $file"
+  jq -r --arg mode "$mode" "$EXTRACT" "$file" 2>/dev/null || die "invalid scan JSON: $file"
 }
 
 {
