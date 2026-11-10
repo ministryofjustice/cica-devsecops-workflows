@@ -32,7 +32,7 @@ workspace belongs to the **calling** repo, where `actions/snyk-auth` does not
 exist, so a local path would fail.
 
 The previous workaround was an external pinned reference inside this repo's own
-workflows:
+workflows, example:
 
 ```yaml
 uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.11
@@ -90,22 +90,22 @@ Tags are immutable pointers to a commit, so:
   including that commit's (old, external) `snyk-auth` reference. Committing new
   work to `main` does not retroactively change a published tag.
 - The `$/` behaviour applies only once a consumer bumps its pin to a tag that
-  contains the `$/` change (`v1.0.12` onward).
+  contains the `$/` change.
 
 ## How a new version propagates to consumers
 
-Dependabot. Each consumer (`cica-apply-web`, and siblings) has a
-`github-actions` ecosystem block in `.github/dependabot.yml` with an
-`all-github-actions` group (`patterns: ['*']`) that covers the
-`ministryofjustice/cica-devsecops-workflows/...` references.
+ Automatic propagation requires each consumer to configure the `github-actions`
+ ecosystem in `.github/dependabot.yml`. The current `cica-apply-web` configuration
+ only covers `npm`, so its workflow references must be bumped manually until
+ Actions updates are configured.
 
 Flow:
+ Once a consumer configures Actions updates and an `all-github-actions` group
+ (`patterns: ['*']`), the intended flow is:
 
-1. Tag a new version of this repo (the one deliberate manual act).
-2. On its next scheduled run (weekly, Sunday for `cica-apply-web`), Dependabot
-   notices the new tag.
-3. It opens a single grouped PR in the consumer bumping every devsecops
-   reference from the old tag to the new.
+ 1. Publish a new GitHub Release of this repo, creating its version tag.
+ 2. On its configured schedule, Dependabot notices the new version.
+ 3. It opens a grouped PR updating the consumer's devsecops references.
 4. A human reviews and merges. The pipeline then runs the new version, with
    `$/actions/snyk-auth` resolving to that same version internally.
 
