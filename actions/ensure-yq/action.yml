@@ -1,0 +1,47 @@
+name: Ensure jq and yq
+description: >
+  Ensure jq and a pinned Mike Farah's Go yq are on PATH, installing yq if the
+  runner image's copy is absent, wrong (the Python yq wrapper), or a different
+  version. yq is always installed at the pinned version so behaviour is
+  reproducible across GitHub-hosted and self-hosted runners and does not drift
+  with the image's preinstalled yq.
+
+  This is the single source of truth for the pinned yq version in this repo.
+  Both the reconcile workflow (at runtime) and ci.yml (to run the script tests)
+  call it, so there is one number to bump, not several.
+
+inputs:
+  yq-version:
+    description: >
+      Pinned Mike Farah's Go yq version to install (e.g. v4.44.3). Callers may
+      override; the default here is the repo-wide pin.
+    required: false
+    default: 'v4.44.3'
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        YQ_VERSION: ${{ inputs.yq-version }}
+      run: |
+        set -euo pipefail
+        # jq's query language is stable across versions, so only install if absent.
+        command -v jq >/dev/null 2>&1 || { echo "jq not found; installing"; sudo apt-get update && sudo apt-get install -y jq; }
+
+        # yq is always (re)installed at the pinned version, overriding whatever
+        # the image ships, so the result does not drift. A future yq major could
+        # change its expression syntax and break the .snyk filters, which is why
+        # this is pinned rather than "latest".
+        ARCH=$(dpkg --print-architecture 2>/dev/null || echo amd64)
+        echo "Installing pinned yq ${YQ_VERSION} (${ARCH})"
+        sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" -o /usr/local/bin/yq
+        sudo chmod +x /usr/local/bin/yq
+
+        # Confirm we got Mike Farah's yq at the pinned version, not a shadowed
+        # copy earlier on PATH or the unrelated Python yq wrapper.
+        yq --version 2>&1 | grep -qi 'mikefarah' || { echo "installed yq is not Mike Farah's Go yq" >&2; exit 1; }
+        yq --version | grep -q "${YQ_VERSION#v}" || { echo "yq version mismatch: wanted ${YQ_VERSION}, got $(yq --version)" >&2; exit 1; }
+
+        jq --version
+        yq --version
