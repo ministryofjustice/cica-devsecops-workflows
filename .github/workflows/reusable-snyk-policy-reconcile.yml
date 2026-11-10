@@ -152,7 +152,7 @@ jobs:
         # above. No second checkout, no ref to resolve.
         uses: $/actions/snyk-policy-reconcile
         with:
-          policy-path: ${{ inputs.policy-path }}
+          policy-path: ${{ github.workspace }}/${{ inputs.working-directory }}/${{ inputs.policy-path }}
           oss-json: ${{ github.workspace }}/snyk-oss.json
           container-json: ${{ github.workspace }}/snyk-container.json
           expiry-window-days: ${{ inputs.expiry-window-days }}
