@@ -21,14 +21,9 @@ The release notes are the changelog. `CHANGELOG.md` holds the history up to `v1.
 
 1. Open a PR against this repo.
 2. If the change affects behaviour a caller depends on (not just internal refactoring), test it end-to-end against a real caller on a throwaway branch pointed at your PR's commit SHA before merging.
-3. **Once testing is done, bump the internal `snyk-auth` self-references to the version you're about to release.** Do this last: a commit whose self-references point at a version that isn't published yet can't be tested from a caller, because every Snyk step fails trying to fetch that version. `reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` each call `actions/snyk-auth` via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`) rather than a local path — see the design note in `docs/inputs.md` for why a local path doesn't work here. Publishing a release does **not** update these lines automatically; they're just text until someone edits them. Do this every release, regardless of whether `snyk-auth` itself changed. Verify nothing was missed:
-   ```
-   grep -rn "snyk-auth@v" .github/workflows/
-   ```
-   All matches should show the version you're about to release.
-4. Merge to `main` once reviewed.
-5. Publish the release, as described below.
-6. Existing callers are **not** automatically affected — they stay on whatever version they already reference until someone deliberately bumps it in their own caller workflow file.
+3. Merge to `main` once reviewed.
+4. Publish the release, as described below.
+5. Existing callers are **not** automatically affected — they stay on whatever version they already reference until someone deliberately bumps it in their own caller workflow file.
 
 ## Publishing a release
 
@@ -50,16 +45,18 @@ Never move or delete a published release or its tag — callers may be pinned to
 
 ## Superseded releases
 
-When a newer version replaces a faulty one (for example, `v1.0.10` fixing `v1.0.9`):
+When a newer version replaces an older one (for example, `v1.0.10` replaces `v1.0.9`):
 
-1. Publish the fix as a new version, as above.
-2. Edit the faulty release on GitHub and add this line to the top of its notes:
+1. Publish the changes as a new version, as above.
+2. Edit the new release on GitHub and add this line to the top of its notes:
    ```
-   > **Superseded by vX.Y.Z** — <what was wrong, in one line>. Use vX.Y.Z instead.
+   > **Superseded by vX.Y.Z** — <what has changed, in one line>. Use vX.Y.Z instead.
    ```
 3. Add a `### Known issues` entry to the faulty release's notes with more detail, if one line isn't enough.
 
 Don't delete the superseded release: callers pinned to it still need it to resolve, and the note tells them why to move.
+
+> **Note on the old "bump the `snyk-auth` self-references before tagging" step:** this is no longer needed. The reusable workflows now reference the in-repo `snyk-auth` action with GitHub's self-repository syntax (`uses: $/actions/snyk-auth`), which resolves to this repo at the exact commit a caller is running — tag or full SHA. There is nothing to hand-edit before a release and no `grep` to verify. See the design note in `docs/inputs.md`.
 
 ## Rolling out a new version to callers
 

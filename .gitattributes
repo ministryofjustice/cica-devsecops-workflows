@@ -1,0 +1,7 @@
+# Normalize line endings. These files run on Linux CI runners, so store and
+# check out everything with LF. Prevents CRLF drift when the repo is edited
+# through the Windows side of a WSL mount.
+* text=auto eol=lf
+
+# Shell scripts must be LF (a CRLF shebang line breaks execution).
+*.sh text eol=lf
