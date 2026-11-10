@@ -119,7 +119,7 @@ jobs:
       - name: Snyk Open Source scan (JSON)
         # `snyk test` exits non-zero when it finds issues; that is expected and
         # must not fail this non-blocking job.
-        run: snyk test --severity-threshold=${{ inputs.severity }} --json-file-output="${{ github.workspace }}/snyk-oss.json" || true
+        run: snyk test --severity-threshold=${{ inputs.severity }} --policy-path="${{ inputs.policy-path }}" --json-file-output="${{ github.workspace }}/snyk-oss.json" || true
         env:
           SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
 
