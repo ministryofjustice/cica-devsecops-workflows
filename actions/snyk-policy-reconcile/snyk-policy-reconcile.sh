@@ -258,7 +258,7 @@ awk '
 #   ACTIVE  = policy ∩ reported
 #   NEW     = reported - policy - suppressed
 comm -23 "$WORKDIR/policy.txt" "$WORKDIR/reported.txt" > "$WORKDIR/stale.txt"
-comm -12 "$WORKDIR/policy.txt" "$WORKDIR/reported.txt" > "$WORKDIR/active.txt"
+comm -12 "$WORKDIR/policy.txt" "$WORKDIR/suppressed.txt" > "$WORKDIR/active.txt"
 comm -23 \
   <(comm -23 "$WORKDIR/reported.txt" "$WORKDIR/policy.txt") \
   "$WORKDIR/suppressed.txt" > "$WORKDIR/new.txt"
