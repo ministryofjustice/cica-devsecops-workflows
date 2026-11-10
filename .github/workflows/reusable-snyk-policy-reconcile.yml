@@ -192,7 +192,7 @@ jobs:
             const marker = '<!-- snyk-policy-reconcile -->';
             const fullBody = `${body}\n\n${marker}`;
 
-            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
             const existing = comments.find(c => c.body && c.body.includes(marker));
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: fullBody });
