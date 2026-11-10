@@ -130,8 +130,8 @@ jobs:
         # separate container-build run. Non-blocking: a build failure shouldn't
         # fail this triage job, so the subsequent scan step guards on the image.
         if: inputs.build-dockerfile != '' && inputs.reconcile-image != ''
+        continue-on-error: true
         run: |
-          set -euo pipefail
           docker build \
             --target "${{ inputs.build-target }}" \
             -f "${{ inputs.build-dockerfile }}" \
