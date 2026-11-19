@@ -23,9 +23,9 @@ The release notes are the changelog. `CHANGELOG.md` holds the history up to `v1.
 2. Prefer [Conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages.
 3. Open a PR against the default branch `main` for this repo. Once again prefer using a Conventional Commit style naming convention for PR naming. 
 4. If the change affects behaviour a caller depends on (not just internal refactoring), test it end-to-end against a real caller on a throwaway branch pointed at your PR's commit SHA before merging.
-6. Prefer `Squash and merge`, `Rebase and merge` or a `Fast-Forward merge` to `main` once reviewed.
+5. Prefer `Squash and merge`, `Rebase and merge` or a `Fast-Forward merge` to `main` once reviewed.
 7. Publish the release, as described in the [Publishing a release](#publishing-a-release) section outlined below.
-8. Note existing callers are **not** automatically affected — they stay on whatever version they already reference until someone deliberately bumps the version in the a caller workflow file, dependabot or rennovate can be added and configured to automate version updates for caller repos.
+8. Note existing callers are **not** automatically affected — they stay on whatever version they already reference until someone deliberately bumps the version in their caller workflow file. Dependabot or Renovate can be added and configured to automate version updates for caller repos.
 
 ## Publishing a release
 
