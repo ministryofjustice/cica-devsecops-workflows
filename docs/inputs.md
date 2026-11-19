@@ -2,11 +2,18 @@
 
 For the exact inputs, secrets, and outputs of a workflow, read its `on.workflow_call` block in the file itself — every input already carries a `description`, `type`, `required`, and `default` there. This document covers: worked example calls, and the design rationale behind choices that aren't obvious from reading the YAML.
 
-### Why `snyk-auth` is referenced externally, not by local path
+### How `snyk-auth` is referenced from the reusable workflows
 
-`reusable-security.yml`, `reusable-container.yml`, and `reusable-publish.yml` call `actions/snyk-auth` (which lives in this same repo) via a pinned external reference (`ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@vX.Y.Z`), not a local path like `./actions/snyk-auth`. This looks redundant but isn't: these three files are *reusable* workflows, meant to be called via `workflow_call` from other repositories (`cica-apply-web`, and eventually its siblings). When a job in one of them runs, its `github.*` context (and whatever `actions/checkout` checks out by default) reflects the **calling** repository, not this one — so a local path would resolve against the caller's files, where `actions/snyk-auth` doesn't exist, and the step would fail. The external reference tells GitHub Actions to fetch the action from this repo specifically, regardless of what the caller checked out.
+The reusable workflows (`reusable-security.yml`, `reusable-container.yml`, `reusable-publish.yml`, `reusable-snyk-policy-reconcile.yml`) call `actions/snyk-auth` (which lives in this same repo) with GitHub's **self-repository syntax**: `uses: $/actions/snyk-auth`.
 
-One consequence: **publishing a new release does not automatically update these three references.** See the release checklist in `docs/release-process.md`.
+
+Why not a workspace-relative local path (`./actions/snyk-auth`)? These files are *reusable* workflows, called via `workflow_call` from other repositories (`cica-apply-web`, and its siblings). When a job in one of them runs, whatever `actions/checkout` checks out reflects the **calling** repository, not this one — so a workspace-relative path would resolve against the caller's files, where `actions/snyk-auth` doesn't exist, and the step would fail.
+
+The `$/` self-repository reference solves this without the maintenance cost of a hardcoded version. It resolves to *this* repo at the exact commit the reusable workflow is running from — so when a caller pins `@v1.0.12`, the `snyk-auth` step resolves to `v1.0.12`; when a caller pins a full commit SHA, it resolves to that same SHA. There is nothing to bump before a release.
+
+> `$/` requires the GitHub Actions runner to be on version 2.336.0 or newer (GitHub-hosted runners qualify). If any self-hosted runner in the estate is older, it won't resolve the reference.
+
+The action-pinning check in `reusable-security.yml` skips `$/`-prefixed references, since they're inherently pinned to the running commit.
 
 ---
 
@@ -34,10 +41,12 @@ Composite action. Exchanges a Snyk service account's OAuth client ID/secret for 
 
 ### Example call
 
+This repo's own reusable workflows reference the action with the self-repository syntax (`uses: $/actions/snyk-auth`) — see the design note above. An *external* workflow in another repo calls it with the full external reference instead (pin to the version you want):
+
 ```yaml
 - name: Get Snyk OAuth token
   id: snyk-auth
-  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.0.12
+  uses: ministryofjustice/cica-devsecops-workflows/actions/snyk-auth@v1.x.y
   with:
     client-id: ${{ secrets.SNYK_CLIENT_ID }}
     client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
