@@ -1,0 +1,230 @@
+name: Reusable Snyk Policy Reconcile
+
+# Non-blocking triage of the drift between a repo's .snyk policy file and what
+# Snyk actually reports now. It runs the Open Source scan (and, if an image is
+# provided, the container scan), reconciles the reported issue IDs against
+# .snyk, and posts the three buckets (STALE / ACTIVE / NEW) as a PR comment.
+#
+# This job NEVER fails the build and NEVER edits .snyk. Removing a stale entry
+# or adding a new, reasoned, expiring ignore stays a hand-written, reviewed
+# change — see docs/dependency-and-container-hygiene.md §4. The comment is a
+# prompt for that human triage, nothing more.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version used to install the Snyk CLI
+        type: string
+        required: false
+        default: '24.22.1'
+      snyk-version:
+        description: Pinned Snyk CLI version to install
+        type: string
+        required: false
+        default: '1.1306.3'
+      yq-version:
+        description: >
+          Pinned Mike Farah's Go yq version to install (used to parse .snyk).
+          Pinned and always installed so the reconcile result does not drift
+          with whatever yq the runner image happens to ship.
+        type: string
+        required: false
+        default: 'v4.44.3'
+      snyk-api-url:
+        description: Snyk API base URL
+        type: string
+        required: false
+        default: 'https://api.snyk.io'
+      working-directory:
+        description: Directory containing package.json / .snyk for non-root projects
+        type: string
+        required: false
+        default: '.'
+      policy-path:
+        description: Path to the .snyk policy file (relative to working-directory)
+        type: string
+        required: false
+        default: '.snyk'
+      severity:
+        description: Severity threshold for the scans this job runs
+        type: string
+        required: false
+        default: 'high'
+      reconcile-image:
+        description: >
+          Optional image ref for the container surface. Leave empty to reconcile
+          only the Open Source (npm) surface. If set, the image must already be
+          loadable in this job (e.g. built here via build-dockerfile below, or a
+          registry ref Snyk can pull).
+        type: string
+        required: false
+        default: ''
+      build-dockerfile:
+        description: >
+          Optional path to a Dockerfile to build before the container scan, so
+          the container surface can be reconciled on a pull_request without a
+          prebuilt image available. When set, the workflow builds the image and
+          tags it as reconcile-image (which must also be set). Leave empty if
+          reconcile-image is already loadable by other means.
+        type: string
+        required: false
+        default: ''
+      build-target:
+        description: Dockerfile build stage/target to build (only used with build-dockerfile)
+        type: string
+        required: false
+        default: 'production'
+      build-context:
+        description: Docker build context (only used with build-dockerfile)
+        type: string
+        required: false
+        default: '.'
+      expiry-window-days:
+        description: Warn on .snyk ignores expiring within this many days
+        type: number
+        required: false
+        default: 14
+    secrets:
+      SNYK_CLIENT_ID:
+        required: true
+      SNYK_CLIENT_SECRET:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Ensure jq and yq are available
+        # Installs jq and the pinned Mike Farah's Go yq the reconcile script
+        # needs. Factored into a composite action (referenced via $/, so it
+        # resolves to this repo at the running commit) so the pinned yq version
+        # lives in exactly one place — actions/ensure-yq — and is shared with
+        # ci.yml's test job. The caller can still override via the yq-version
+        # input, which is forwarded here.
+        uses: $/actions/ensure-yq
+        with:
+          yq-version: ${{ inputs.yq-version }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - run: npm ci
+
+      - name: Install Snyk
+        run: npm install -g snyk@${{ inputs.snyk-version }}
+
+      - name: Get Snyk OAuth token
+        id: snyk-auth
+        uses: $/actions/snyk-auth
+        with:
+          client-id: ${{ secrets.SNYK_CLIENT_ID }}
+          client-secret: ${{ secrets.SNYK_CLIENT_SECRET }}
+          api-url: ${{ inputs.snyk-api-url }}
+
+      - name: Snyk Open Source scan (JSON)
+        # `snyk test` exits non-zero when it finds issues; that is expected and
+        # must not fail this non-blocking job.
+        run: snyk test --severity-threshold=${{ inputs.severity }} --policy-path="${{ inputs.policy-path }}" --json-file-output="${{ github.workspace }}/snyk-oss.json" || true
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+
+      - name: Build image for container surface
+        # Only when a Dockerfile is given AND an image tag to apply. Lets a
+        # pull_request caller reconcile the container surface without a prebuilt
+        # image, without this workflow having to coordinate an artifact from a
+        # separate container-build run. Non-blocking: a build failure shouldn't
+        # fail this triage job, so the subsequent scan step guards on the image.
+        if: inputs.build-dockerfile != '' && inputs.reconcile-image != ''
+        continue-on-error: true
+        run: |
+          docker build \
+            --target "${{ inputs.build-target }}" \
+            -f "${{ inputs.build-dockerfile }}" \
+            -t "${{ inputs.reconcile-image }}" \
+            "${{ inputs.build-context }}"
+
+      - name: Snyk container scan (JSON)
+        if: inputs.reconcile-image != ''
+        run: snyk container test "${{ inputs.reconcile-image }}" --severity-threshold=${{ inputs.severity }} --policy-path="${{ inputs.policy-path }}" --json-file-output="${{ github.workspace }}/snyk-container.json" || true
+        env:
+          SNYK_OAUTH_TOKEN: ${{ steps.snyk-auth.outputs.token }}
+
+      - name: Reconcile .snyk against scan results
+        id: reconcile
+        # The reconcile script is bundled inside this composite action and
+        # referenced via `$/`, so it resolves to this repo at the exact commit
+        # the workflow is running from — same mechanism as the snyk-auth step
+        # above. No second checkout, no ref to resolve.
+        uses: $/actions/snyk-policy-reconcile
+        with:
+          policy-path: ${{ github.workspace }}/${{ inputs.working-directory }}/${{ inputs.policy-path }}
+          oss-json: ${{ github.workspace }}/snyk-oss.json
+          container-json: ${{ github.workspace }}/snyk-container.json
+          expiry-window-days: ${{ inputs.expiry-window-days }}
+          report-dir: ${{ github.workspace }}
+
+      - name: Comment reconciliation summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const r = JSON.parse(fs.readFileSync(`${process.env.GITHUB_WORKSPACE}/reconcile.json`, 'utf8'));
+            const list = (xs) => xs.length ? xs.map(x => `- \`${x}\``).join('\n') : '_none_';
+            const exp = r.expiring.length
+              ? r.expiring.map(e => `- \`${e.id}\` expires ${e.expires} (${e.days_left} days)`).join('\n')
+              : '_none_';
+            const body = [
+              '### Snyk policy reconciliation',
+              '',
+              'Triage only — this never edits `.snyk`. Removing a stale entry or adding a new, reasoned, expiring ignore stays a hand-written, reviewed change.',
+              '',
+              `**STALE** (in \`.snyk\`, not reported — candidate for removal): ${r.stale.length}`,
+              list(r.stale),
+              '',
+              `**ACTIVE** (in \`.snyk\`, still reported — keep): ${r.active.length}`,
+              list(r.active),
+              '',
+              `**NEW** (reported, not in \`.snyk\` — needs a decision): ${r.new.length}`,
+              list(r.new),
+              '',
+              '**Expiring soon:**',
+              exp,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const marker = '<!-- snyk-policy-reconcile -->';
+            const fullBody = `${body}\n\n${marker}`;
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: fullBody });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: fullBody });
+            }
+
+      - name: Upload reconciliation report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: snyk-policy-reconcile
+          path: |
+            reconcile.txt
+            reconcile.json
+          retention-days: 14

@@ -1,0 +1,9 @@
+{
+  "_comment": "Synthetic `snyk container test --json` fixture. Models the output shape of Snyk CLI v1.1306.3 (the snyk-version pinned in reusable-snyk-policy-reconcile.yml). Black-box tests against frozen fixtures cannot detect a Snyk JSON schema change on their own — when bumping snyk-version, re-check `vulnerabilities[].id` / `filtered.ignore[].id` against real output and update if the shape changed. Unknown top-level keys are ignored by the reconcile script.",
+  "vulnerabilities": [],
+  "filtered": {
+    "ignore": [
+      { "id": "SNYK-DEBIAN13-OPENSSL-123456", "severity": "high", "title": "Ignored base-image openssl issue" }
+    ]
+  }
+}

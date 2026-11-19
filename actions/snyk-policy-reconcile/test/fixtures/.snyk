@@ -1,0 +1,36 @@
+# Test fixture .snyk for snyk-policy-reconcile.sh.
+# Engineered so each reconcile bucket is non-empty and the tricky parsing
+# cases are exercised. See test/reconcile.test.sh for the expected buckets.
+version: v1.25.0
+ignore:
+  # ACTIVE: reported by the OSS scan AND suppressed via filtered.ignore -> KEEP.
+  SNYK-JS-LODASH-1018905:
+    - '*':
+        reason: needs upstream fix
+        expires: 2099-12-03T00:00:00.000Z
+  # ACTIVE (container): reported + suppressed on the container surface.
+  SNYK-DEBIAN13-OPENSSL-123456:
+    - '*':
+        reason: base image, no fix yet
+        expires: 2099-11-15T00:00:00.000Z
+  # STALE: in .snyk but NOT reported by any scan -> candidate for removal.
+  SNYK-JS-STALE-000:
+    - '*':
+        reason: vuln no longer present
+        expires: 2099-01-01T00:00:00.000Z
+  # EXPIRING: expiry inside the default 14-day window (relative date injected
+  # by the test harness via @@EXPIRING_DATE@@ so the test is not time-bombed).
+  SNYK-JS-EXPIRING-555:
+    - '*':
+        reason: re-verify soon
+        expires: '@@EXPIRING_DATE@@'
+  # Quoted key with NO expires: must still parse as an ID, must not appear in
+  # the expiry output.
+  'SNYK-JS-QUOTEDKEY-777':
+    - '*':
+        reason: permanent accepted risk, quoted key
+# exclude: (Snyk Code) is a DIFFERENT mechanism and must be ignored entirely
+# by the reconciler.
+exclude:
+  code:
+    - src/legacy/**
